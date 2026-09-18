@@ -1,5 +1,7 @@
 # Phase 1 — Infrastructure Implementation Plan
 
+> **Status: completed 2026-09-18** on branch `phase-1`. Deviation from the plan: no `src/middleware.ts` (TD-003) and no Auth.js adapter (ADR 0001).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A bootable multi-tenant Next.js app with validated env, Dockerised services, the approved Prisma schema migrated, password + magic-link login with revocable sessions, centralised permissions, append-only audit log, a tenant-isolation test and CI.
