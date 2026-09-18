@@ -51,3 +51,14 @@ export async function resolveTenant(
     select: currentTenantSelect,
   });
 }
+
+/** Public origin of a tenant: its verified custom domain, or its subdomain of the platform. */
+export function tenantBaseUrl(tenant: {
+  slug: string;
+  customDomain?: string | null;
+  customDomainVerifiedAt?: Date | null;
+}): string {
+  if (tenant.customDomain && tenant.customDomainVerifiedAt) return `https://${tenant.customDomain}`;
+  const protocol = hostname(env.APP_DOMAIN) === 'localhost' ? 'http' : 'https';
+  return `${protocol}://${tenant.slug}.${env.APP_DOMAIN}`;
+}

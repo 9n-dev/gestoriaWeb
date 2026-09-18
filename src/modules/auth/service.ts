@@ -175,6 +175,26 @@ const sha256 = (value: string) => createHash('sha256').update(value).digest('hex
 const tokenIdentifier = (tenantId: string | null, email: string) =>
   `${tenantId ?? 'platform'}:${email}`;
 
+/**
+ * Single-use login token for `/acceso/enlace?token=`. Only its hash is stored.
+ * Magic links live 15 minutes; invitations reuse the mechanism with a longer life.
+ */
+export async function issueLoginToken(
+  tenantId: string | null,
+  email: string,
+  lifetimeMs: number,
+): Promise<string> {
+  const token = randomBytes(32).toString('base64url');
+  await prisma.verificationToken.create({
+    data: {
+      identifier: tokenIdentifier(tenantId, email),
+      token: sha256(token),
+      expires: new Date(Date.now() + lifetimeMs),
+    },
+  });
+  return token;
+}
+
 /** Always resolves: whether the account exists is never revealed to the requester. */
 export async function requestMagicLink(
   tenant: { id: string; name: string } | null,
@@ -188,15 +208,7 @@ export async function requestMagicLink(
   });
   if (!user) return;
 
-  const token = randomBytes(32).toString('base64url');
-  await prisma.verificationToken.create({
-    data: {
-      identifier: tokenIdentifier(tenantId, email),
-      token: sha256(token),
-      expires: new Date(Date.now() + MAGIC_LINK_MS),
-    },
-  });
-
+  const token = await issueLoginToken(tenantId, email, MAGIC_LINK_MS);
   const link = `${baseUrl}/acceso/enlace?token=${token}`;
   await sendEmail({
     tenantId,

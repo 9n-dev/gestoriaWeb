@@ -24,7 +24,7 @@ import { getTaxProfile } from './tax-profiles/service';
 const notFound = (id: string) =>
   new AppError('NOT_FOUND', 'No encontramos ese cliente.', `client ${id} not visible`);
 
-const resourceOf = (client: StaffClient): Resource => ({
+export const resourceOf = (client: StaffClient): Resource => ({
   tenantId: client.tenantId,
   clientId: client.id,
   assignedManagerId: client.assignedManagerId,
@@ -56,7 +56,7 @@ export async function listClientsFor(
 }
 
 /** Staff view of a client the user can read. Not found and not allowed are indistinguishable. */
-async function loadForStaff(user: SessionUser, id: string): Promise<StaffClient> {
+export async function loadForStaff(user: SessionUser, id: string): Promise<StaffClient> {
   const client = await clientsRepository(requireTenantId(user)).findForStaff(id);
   if (!client || !can(user, 'client.read', resourceOf(client))) throw notFound(id);
   return client;
