@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { env } from '@/env';
 import { getSessionUser, homePathFor } from '@/modules/auth/session';
@@ -20,6 +21,14 @@ export default async function LoginPage() {
         <p className="mt-1 text-fg-muted">Accede a tu portal de clientes.</p>
       </div>
       <LoginForm />
+      {!tenant && (
+        <p className="text-sm text-fg-muted">
+          ¿Tienes una gestoría?{' '}
+          <Link href="/registro" className="underline">
+            Crea tu portal de clientes
+          </Link>
+        </p>
+      )}
       {env.DEMO_MODE && tenant && (
         <section aria-labelledby="demo-users" className="rounded-md bg-surface-muted p-4 text-sm">
           <h2 id="demo-users" className="font-semibold">

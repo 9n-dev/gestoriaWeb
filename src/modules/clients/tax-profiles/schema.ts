@@ -1,20 +1,6 @@
 import { z } from 'zod';
 import { knownModels } from '@/modules/obligations/calendar';
-
-export const REGIMES = {
-  DIRECT_SIMPLIFIED: 'Estimación directa simplificada',
-  DIRECT_NORMAL: 'Estimación directa normal',
-  MODULES: 'Estimación objetiva (módulos)',
-  CORPORATE: 'Impuesto sobre Sociedades',
-  ATTRIBUTION: 'Atribución de rentas (CB, sociedad civil)',
-  NON_BUSINESS: 'Sin actividad económica',
-} as const;
-
-export const VAT_PERIODICITIES = {
-  QUARTER: 'Trimestral',
-  MONTH: 'Mensual',
-  NONE: 'No presenta IVA',
-} as const;
+import { REGIMES } from './labels';
 
 const documentTypeSchema = z.enum([
   'ISSUED_INVOICE',

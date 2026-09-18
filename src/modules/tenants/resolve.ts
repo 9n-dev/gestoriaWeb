@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { env } from '@/env';
 
@@ -5,8 +6,14 @@ export type HostTarget =
   { kind: 'platform' } | { kind: 'slug'; slug: string } | { kind: 'custom'; domain: string };
 
 /** Only what pages need. Settings, tokens and legal data never travel with the request tenant. */
-const currentTenantSelect = { id: true, name: true, slug: true } as const;
-export type CurrentTenant = { id: string; name: string; slug: string };
+const currentTenantSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  branding: true,
+  onboardingCompletedAt: true,
+} as const;
+export type CurrentTenant = Prisma.TenantGetPayload<{ select: typeof currentTenantSelect }>;
 
 const hostname = (host: string) => host.toLowerCase().replace(/:\d+$/, '');
 

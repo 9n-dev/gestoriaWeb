@@ -171,3 +171,32 @@ export async function setOwnPassword(user: SessionUser, password: string): Promi
     entityId: user.id,
   });
 }
+
+const userListSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  status: true,
+  lastLoginAt: true,
+} as const;
+
+export async function listStaff(user: SessionUser) {
+  assertCan(user, 'user.manage');
+  return tenantDb(requireTenantId(user)).user.findMany({
+    where: { role: { in: [...STAFF_ROLES] } },
+    select: userListSelect,
+    orderBy: { name: 'asc' },
+  });
+}
+
+/** People with access to a client, for whoever may invite more. */
+export async function listClientUsers(user: SessionUser, clientId: string) {
+  const client = await loadForStaff(user, clientId);
+  assertCan(user, 'client.inviteUser', resourceOf(client));
+  return tenantDb(client.tenantId).user.findMany({
+    where: { clientLinks: { some: { clientId } } },
+    select: userListSelect,
+    orderBy: { name: 'asc' },
+  });
+}
