@@ -280,7 +280,7 @@ export async function updateRejectionReasons(user: SessionUser, reasons: string[
 export async function rejectDocument(
   user: SessionUser,
   id: string,
-  input: z.input<typeof rejectionSchema>,
+  input: { reason: string; note?: string | null },
 ): Promise<void> {
   const document = await loadForProcessing(user, id);
   const { reason, note } = rejectionSchema.parse(input);
