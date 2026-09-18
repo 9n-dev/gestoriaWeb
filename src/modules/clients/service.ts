@@ -1,5 +1,11 @@
 import { AppError } from '@/lib/errors';
-import { assertCan, can, scopeFor, type SessionUser } from '@/modules/auth/permissions';
+import {
+  assertCan,
+  can,
+  requireTenantId,
+  scopeFor,
+  type SessionUser,
+} from '@/modules/auth/permissions';
 import {
   clientsRepository,
   type ClientFacingClient,
@@ -9,12 +15,6 @@ import {
 
 const notFound = (id: string) =>
   new AppError('NOT_FOUND', 'No encontramos ese cliente.', `client ${id} not visible`);
-
-function requireTenant(user: SessionUser): string {
-  if (!user.tenantId)
-    throw new AppError('FORBIDDEN', 'No tienes permiso para realizar esta acción.');
-  return user.tenantId;
-}
 
 function filterFor(user: SessionUser): ClientFilter {
   switch (scopeFor(user, 'client.read')) {
@@ -34,7 +34,7 @@ export async function listClientsFor(
   user: SessionUser,
 ): Promise<Array<StaffClient | ClientFacingClient>> {
   assertCan(user, 'client.read');
-  const repository = clientsRepository(requireTenant(user));
+  const repository = clientsRepository(requireTenantId(user));
   return can(user, 'client.readInternalNotes')
     ? repository.listForStaff(filterFor(user))
     : repository.listForClientUser(filterFor(user));
@@ -44,7 +44,7 @@ export async function getClientFor(
   user: SessionUser,
   id: string,
 ): Promise<StaffClient | ClientFacingClient> {
-  const client = await clientsRepository(requireTenant(user)).findForStaff(id);
+  const client = await clientsRepository(requireTenantId(user)).findForStaff(id);
   // Not found and not allowed are indistinguishable from outside.
   if (!client) throw notFound(id);
   const resource = {
