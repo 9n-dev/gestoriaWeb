@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import type { Tenant, User, UserSession } from '@prisma/client';
+import type { User, UserSession } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
 import { AppError } from '@/lib/errors';
@@ -177,7 +177,7 @@ const tokenIdentifier = (tenantId: string | null, email: string) =>
 
 /** Always resolves: whether the account exists is never revealed to the requester. */
 export async function requestMagicLink(
-  tenant: Tenant | null,
+  tenant: { id: string; name: string } | null,
   rawEmail: string,
   baseUrl: string,
 ): Promise<void> {
