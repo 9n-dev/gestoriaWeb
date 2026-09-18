@@ -216,6 +216,14 @@ export function scopeFor(user: SessionUser, action: Action): Scope | undefined {
   return user.status === 'ACTIVE' ? grants[user.role] : undefined;
 }
 
+/** Tenant of a tenant-bound user. Superadmins have none and never write tenant data. */
+export function requireTenantId(user: SessionUser): string {
+  if (!user.tenantId) {
+    throw new AppError('FORBIDDEN', 'No tienes permiso para realizar esta acción.');
+  }
+  return user.tenantId;
+}
+
 export function assertCan(user: SessionUser, action: Action, resource?: Resource): void {
   if (!can(user, action, resource)) {
     throw new AppError(

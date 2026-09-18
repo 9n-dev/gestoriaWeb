@@ -1,0 +1,423 @@
+{
+  "year": 2027,
+  "source": "General statutory filing deadlines (Ley General Tributaria, Reglamentos de IVA, IRPF e IS). Review against AEAT's 'Calendario del contribuyente' for the year: https://sede.agenciatributaria.gob.es/Sede/ayuda/calendario-contribuyente.html",
+  "updatedAt": "2026-09-18",
+  "note": "Nominal dates. The application moves a deadline that falls on Saturday, Sunday or national holiday to the next business day.",
+  "models": {
+    "303": {
+      "name": "IVA. Autoliquidación",
+      "periods": {
+        "QUARTER": [
+          {
+            "ordinal": 1,
+            "due": "2027-04-20"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-07-20"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-10-20"
+          },
+          {
+            "ordinal": 4,
+            "due": "2028-01-30"
+          }
+        ],
+        "MONTH": [
+          {
+            "ordinal": 1,
+            "due": "2027-02-28"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-03-30"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-04-30"
+          },
+          {
+            "ordinal": 4,
+            "due": "2027-05-30"
+          },
+          {
+            "ordinal": 5,
+            "due": "2027-06-30"
+          },
+          {
+            "ordinal": 6,
+            "due": "2027-07-30"
+          },
+          {
+            "ordinal": 7,
+            "due": "2027-08-30"
+          },
+          {
+            "ordinal": 8,
+            "due": "2027-09-30"
+          },
+          {
+            "ordinal": 9,
+            "due": "2027-10-30"
+          },
+          {
+            "ordinal": 10,
+            "due": "2027-11-30"
+          },
+          {
+            "ordinal": 11,
+            "due": "2027-12-30"
+          },
+          {
+            "ordinal": 12,
+            "due": "2028-01-30"
+          }
+        ]
+      }
+    },
+    "130": {
+      "name": "IRPF. Pago fraccionado (estimación directa)",
+      "periods": {
+        "QUARTER": [
+          {
+            "ordinal": 1,
+            "due": "2027-04-20"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-07-20"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-10-20"
+          },
+          {
+            "ordinal": 4,
+            "due": "2028-01-30"
+          }
+        ]
+      }
+    },
+    "131": {
+      "name": "IRPF. Pago fraccionado (estimación objetiva)",
+      "periods": {
+        "QUARTER": [
+          {
+            "ordinal": 1,
+            "due": "2027-04-20"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-07-20"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-10-20"
+          },
+          {
+            "ordinal": 4,
+            "due": "2028-01-30"
+          }
+        ]
+      }
+    },
+    "111": {
+      "name": "Retenciones e ingresos a cuenta. Rendimientos del trabajo y actividades económicas",
+      "periods": {
+        "QUARTER": [
+          {
+            "ordinal": 1,
+            "due": "2027-04-20"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-07-20"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-10-20"
+          },
+          {
+            "ordinal": 4,
+            "due": "2028-01-20"
+          }
+        ],
+        "MONTH": [
+          {
+            "ordinal": 1,
+            "due": "2027-02-20"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-03-20"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-04-20"
+          },
+          {
+            "ordinal": 4,
+            "due": "2027-05-20"
+          },
+          {
+            "ordinal": 5,
+            "due": "2027-06-20"
+          },
+          {
+            "ordinal": 6,
+            "due": "2027-07-20"
+          },
+          {
+            "ordinal": 7,
+            "due": "2027-08-20"
+          },
+          {
+            "ordinal": 8,
+            "due": "2027-09-20"
+          },
+          {
+            "ordinal": 9,
+            "due": "2027-10-20"
+          },
+          {
+            "ordinal": 10,
+            "due": "2027-11-20"
+          },
+          {
+            "ordinal": 11,
+            "due": "2027-12-20"
+          },
+          {
+            "ordinal": 12,
+            "due": "2028-01-20"
+          }
+        ]
+      }
+    },
+    "115": {
+      "name": "Retenciones e ingresos a cuenta. Arrendamiento de inmuebles urbanos",
+      "periods": {
+        "QUARTER": [
+          {
+            "ordinal": 1,
+            "due": "2027-04-20"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-07-20"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-10-20"
+          },
+          {
+            "ordinal": 4,
+            "due": "2028-01-20"
+          }
+        ],
+        "MONTH": [
+          {
+            "ordinal": 1,
+            "due": "2027-02-20"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-03-20"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-04-20"
+          },
+          {
+            "ordinal": 4,
+            "due": "2027-05-20"
+          },
+          {
+            "ordinal": 5,
+            "due": "2027-06-20"
+          },
+          {
+            "ordinal": 6,
+            "due": "2027-07-20"
+          },
+          {
+            "ordinal": 7,
+            "due": "2027-08-20"
+          },
+          {
+            "ordinal": 8,
+            "due": "2027-09-20"
+          },
+          {
+            "ordinal": 9,
+            "due": "2027-10-20"
+          },
+          {
+            "ordinal": 10,
+            "due": "2027-11-20"
+          },
+          {
+            "ordinal": 11,
+            "due": "2027-12-20"
+          },
+          {
+            "ordinal": 12,
+            "due": "2028-01-20"
+          }
+        ]
+      }
+    },
+    "349": {
+      "name": "Declaración recapitulativa de operaciones intracomunitarias",
+      "periods": {
+        "QUARTER": [
+          {
+            "ordinal": 1,
+            "due": "2027-04-20"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-07-20"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-10-20"
+          },
+          {
+            "ordinal": 4,
+            "due": "2028-01-30"
+          }
+        ],
+        "MONTH": [
+          {
+            "ordinal": 1,
+            "due": "2027-02-20"
+          },
+          {
+            "ordinal": 2,
+            "due": "2027-03-20"
+          },
+          {
+            "ordinal": 3,
+            "due": "2027-04-20"
+          },
+          {
+            "ordinal": 4,
+            "due": "2027-05-20"
+          },
+          {
+            "ordinal": 5,
+            "due": "2027-06-20"
+          },
+          {
+            "ordinal": 6,
+            "due": "2027-07-20"
+          },
+          {
+            "ordinal": 7,
+            "due": "2027-08-20"
+          },
+          {
+            "ordinal": 8,
+            "due": "2027-09-20"
+          },
+          {
+            "ordinal": 9,
+            "due": "2027-10-20"
+          },
+          {
+            "ordinal": 10,
+            "due": "2027-11-20"
+          },
+          {
+            "ordinal": 11,
+            "due": "2027-12-20"
+          },
+          {
+            "ordinal": 12,
+            "due": "2028-01-30"
+          }
+        ]
+      }
+    },
+    "390": {
+      "name": "IVA. Resumen anual",
+      "periods": {
+        "YEAR": [
+          {
+            "ordinal": 0,
+            "due": "2028-01-30"
+          }
+        ]
+      }
+    },
+    "180": {
+      "name": "Resumen anual de retenciones. Arrendamientos",
+      "periods": {
+        "YEAR": [
+          {
+            "ordinal": 0,
+            "due": "2028-01-31"
+          }
+        ]
+      }
+    },
+    "190": {
+      "name": "Resumen anual de retenciones. Trabajo y actividades económicas",
+      "periods": {
+        "YEAR": [
+          {
+            "ordinal": 0,
+            "due": "2028-01-31"
+          }
+        ]
+      }
+    },
+    "184": {
+      "name": "Entidades en régimen de atribución de rentas. Declaración informativa anual",
+      "periods": {
+        "YEAR": [
+          {
+            "ordinal": 0,
+            "due": "2028-01-31"
+          }
+        ]
+      }
+    },
+    "347": {
+      "name": "Declaración anual de operaciones con terceras personas",
+      "periods": {
+        "YEAR": [
+          {
+            "ordinal": 0,
+            "due": "2028-02-29"
+          }
+        ]
+      }
+    },
+    "100": {
+      "name": "IRPF. Declaración anual (Renta)",
+      "periods": {
+        "YEAR": [
+          {
+            "ordinal": 0,
+            "due": "2028-06-30"
+          }
+        ]
+      }
+    },
+    "200": {
+      "name": "Impuesto sobre Sociedades. Declaración anual",
+      "periods": {
+        "YEAR": [
+          {
+            "ordinal": 0,
+            "due": "2028-07-25"
+          }
+        ]
+      }
+    }
+  }
+}

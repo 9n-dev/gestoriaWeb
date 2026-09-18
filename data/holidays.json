@@ -1,0 +1,166 @@
+{
+  "source": "BOE: Resolución anual de la Dirección General de Trabajo con la relación de fiestas laborales. Only national, non-replaceable holidays.",
+  "updatedAt": "2026-09-18",
+  "holidays": [
+    {
+      "date": "2025-01-01",
+      "name": "Año Nuevo"
+    },
+    {
+      "date": "2025-01-06",
+      "name": "Epifanía del Señor"
+    },
+    {
+      "date": "2025-04-18",
+      "name": "Viernes Santo"
+    },
+    {
+      "date": "2025-05-01",
+      "name": "Fiesta del Trabajo"
+    },
+    {
+      "date": "2025-08-15",
+      "name": "Asunción de la Virgen"
+    },
+    {
+      "date": "2025-10-12",
+      "name": "Fiesta Nacional de España"
+    },
+    {
+      "date": "2025-11-01",
+      "name": "Todos los Santos"
+    },
+    {
+      "date": "2025-12-06",
+      "name": "Día de la Constitución"
+    },
+    {
+      "date": "2025-12-08",
+      "name": "Inmaculada Concepción"
+    },
+    {
+      "date": "2025-12-25",
+      "name": "Natividad del Señor"
+    },
+    {
+      "date": "2026-01-01",
+      "name": "Año Nuevo"
+    },
+    {
+      "date": "2026-01-06",
+      "name": "Epifanía del Señor"
+    },
+    {
+      "date": "2026-04-03",
+      "name": "Viernes Santo"
+    },
+    {
+      "date": "2026-05-01",
+      "name": "Fiesta del Trabajo"
+    },
+    {
+      "date": "2026-08-15",
+      "name": "Asunción de la Virgen"
+    },
+    {
+      "date": "2026-10-12",
+      "name": "Fiesta Nacional de España"
+    },
+    {
+      "date": "2026-11-01",
+      "name": "Todos los Santos"
+    },
+    {
+      "date": "2026-12-06",
+      "name": "Día de la Constitución"
+    },
+    {
+      "date": "2026-12-08",
+      "name": "Inmaculada Concepción"
+    },
+    {
+      "date": "2026-12-25",
+      "name": "Natividad del Señor"
+    },
+    {
+      "date": "2027-01-01",
+      "name": "Año Nuevo"
+    },
+    {
+      "date": "2027-01-06",
+      "name": "Epifanía del Señor"
+    },
+    {
+      "date": "2027-03-26",
+      "name": "Viernes Santo"
+    },
+    {
+      "date": "2027-05-01",
+      "name": "Fiesta del Trabajo"
+    },
+    {
+      "date": "2027-08-15",
+      "name": "Asunción de la Virgen"
+    },
+    {
+      "date": "2027-10-12",
+      "name": "Fiesta Nacional de España"
+    },
+    {
+      "date": "2027-11-01",
+      "name": "Todos los Santos"
+    },
+    {
+      "date": "2027-12-06",
+      "name": "Día de la Constitución"
+    },
+    {
+      "date": "2027-12-08",
+      "name": "Inmaculada Concepción"
+    },
+    {
+      "date": "2027-12-25",
+      "name": "Natividad del Señor"
+    },
+    {
+      "date": "2028-01-01",
+      "name": "Año Nuevo"
+    },
+    {
+      "date": "2028-01-06",
+      "name": "Epifanía del Señor"
+    },
+    {
+      "date": "2028-04-14",
+      "name": "Viernes Santo"
+    },
+    {
+      "date": "2028-05-01",
+      "name": "Fiesta del Trabajo"
+    },
+    {
+      "date": "2028-08-15",
+      "name": "Asunción de la Virgen"
+    },
+    {
+      "date": "2028-10-12",
+      "name": "Fiesta Nacional de España"
+    },
+    {
+      "date": "2028-11-01",
+      "name": "Todos los Santos"
+    },
+    {
+      "date": "2028-12-06",
+      "name": "Día de la Constitución"
+    },
+    {
+      "date": "2028-12-08",
+      "name": "Inmaculada Concepción"
+    },
+    {
+      "date": "2028-12-25",
+      "name": "Natividad del Señor"
+    }
+  ]
+}

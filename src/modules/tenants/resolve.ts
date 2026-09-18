@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { env } from '@/env';
 
@@ -5,8 +6,14 @@ export type HostTarget =
   { kind: 'platform' } | { kind: 'slug'; slug: string } | { kind: 'custom'; domain: string };
 
 /** Only what pages need. Settings, tokens and legal data never travel with the request tenant. */
-const currentTenantSelect = { id: true, name: true, slug: true } as const;
-export type CurrentTenant = { id: string; name: string; slug: string };
+const currentTenantSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  branding: true,
+  onboardingCompletedAt: true,
+} as const;
+export type CurrentTenant = Prisma.TenantGetPayload<{ select: typeof currentTenantSelect }>;
 
 const hostname = (host: string) => host.toLowerCase().replace(/:\d+$/, '');
 
@@ -50,4 +57,15 @@ export async function resolveTenant(
     where: { slug, status: 'ACTIVE' },
     select: currentTenantSelect,
   });
+}
+
+/** Public origin of a tenant: its verified custom domain, or its subdomain of the platform. */
+export function tenantBaseUrl(tenant: {
+  slug: string;
+  customDomain?: string | null;
+  customDomainVerifiedAt?: Date | null;
+}): string {
+  if (tenant.customDomain && tenant.customDomainVerifiedAt) return `https://${tenant.customDomain}`;
+  const protocol = hostname(env.APP_DOMAIN) === 'localhost' ? 'http' : 'https';
+  return `${protocol}://${tenant.slug}.${env.APP_DOMAIN}`;
 }

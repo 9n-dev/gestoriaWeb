@@ -1,0 +1,257 @@
+{
+  "profiles": [
+    {
+      "key": "autonomo-directa",
+      "name": "Autónomo · Estimación directa",
+      "description": "Autónomo en estimación directa simplificada, IVA trimestral, sin trabajadores ni local alquilado.",
+      "rules": {
+        "regime": "DIRECT_SIMPLIFIED",
+        "vatPeriodicity": "QUARTER",
+        "hasEmployees": false,
+        "withholdsRent": false,
+        "intraCommunity": false,
+        "models": ["303", "130", "390", "100"],
+        "checklist": [
+          {
+            "documentType": "ISSUED_INVOICE",
+            "label": "Facturas emitidas"
+          },
+          {
+            "documentType": "RECEIVED_INVOICE",
+            "label": "Facturas recibidas y gastos"
+          }
+        ]
+      }
+    },
+    {
+      "key": "autonomo-directa-local",
+      "name": "Autónomo · Estimación directa con local alquilado",
+      "description": "Como el anterior, con retenciones por el alquiler del local.",
+      "rules": {
+        "regime": "DIRECT_SIMPLIFIED",
+        "vatPeriodicity": "QUARTER",
+        "hasEmployees": false,
+        "withholdsRent": true,
+        "intraCommunity": false,
+        "models": ["303", "130", "115", "390", "180", "100"],
+        "checklist": [
+          {
+            "documentType": "ISSUED_INVOICE",
+            "label": "Facturas emitidas"
+          },
+          {
+            "documentType": "RECEIVED_INVOICE",
+            "label": "Facturas recibidas y gastos"
+          },
+          {
+            "documentType": "RENT_RECEIPT",
+            "label": "Recibos del alquiler del local"
+          }
+        ]
+      }
+    },
+    {
+      "key": "autonomo-directa-trabajadores",
+      "name": "Autónomo · Estimación directa con trabajadores",
+      "description": "Autónomo con trabajadores o profesionales a los que retiene.",
+      "rules": {
+        "regime": "DIRECT_SIMPLIFIED",
+        "vatPeriodicity": "QUARTER",
+        "hasEmployees": true,
+        "withholdsRent": false,
+        "intraCommunity": false,
+        "models": ["303", "130", "111", "390", "190", "100"],
+        "checklist": [
+          {
+            "documentType": "ISSUED_INVOICE",
+            "label": "Facturas emitidas"
+          },
+          {
+            "documentType": "RECEIVED_INVOICE",
+            "label": "Facturas recibidas y gastos"
+          },
+          {
+            "documentType": "PAYROLL",
+            "label": "Nóminas y seguros sociales"
+          }
+        ]
+      }
+    },
+    {
+      "key": "autonomo-directa-trabajadores-local",
+      "name": "Autónomo · Estimación directa con trabajadores y local",
+      "description": "Autónomo con trabajadores y local alquilado.",
+      "rules": {
+        "regime": "DIRECT_SIMPLIFIED",
+        "vatPeriodicity": "QUARTER",
+        "hasEmployees": true,
+        "withholdsRent": true,
+        "intraCommunity": false,
+        "models": ["303", "130", "111", "115", "390", "190", "180", "100"],
+        "checklist": [
+          {
+            "documentType": "ISSUED_INVOICE",
+            "label": "Facturas emitidas"
+          },
+          {
+            "documentType": "RECEIVED_INVOICE",
+            "label": "Facturas recibidas y gastos"
+          },
+          {
+            "documentType": "PAYROLL",
+            "label": "Nóminas y seguros sociales"
+          },
+          {
+            "documentType": "RENT_RECEIPT",
+            "label": "Recibos del alquiler del local"
+          }
+        ]
+      }
+    },
+    {
+      "key": "autonomo-modulos",
+      "name": "Autónomo · Módulos",
+      "description": "Autónomo en estimación objetiva (módulos), IVA trimestral.",
+      "rules": {
+        "regime": "MODULES",
+        "vatPeriodicity": "QUARTER",
+        "hasEmployees": false,
+        "withholdsRent": false,
+        "intraCommunity": false,
+        "models": ["303", "131", "390", "100"],
+        "checklist": [
+          {
+            "documentType": "ISSUED_INVOICE",
+            "label": "Facturas emitidas"
+          },
+          {
+            "documentType": "RECEIVED_INVOICE",
+            "label": "Facturas recibidas y gastos"
+          }
+        ]
+      }
+    },
+    {
+      "key": "sl-basica",
+      "name": "Sociedad limitada",
+      "description": "SL sin trabajadores ni local alquilado.",
+      "rules": {
+        "regime": "CORPORATE",
+        "vatPeriodicity": "QUARTER",
+        "hasEmployees": false,
+        "withholdsRent": false,
+        "intraCommunity": false,
+        "models": ["303", "390", "347", "200"],
+        "checklist": [
+          {
+            "documentType": "ISSUED_INVOICE",
+            "label": "Facturas emitidas"
+          },
+          {
+            "documentType": "RECEIVED_INVOICE",
+            "label": "Facturas recibidas y gastos"
+          },
+          {
+            "documentType": "BANK_STATEMENT",
+            "label": "Extractos bancarios"
+          }
+        ]
+      }
+    },
+    {
+      "key": "sl-trabajadores-local",
+      "name": "Sociedad limitada con trabajadores y local",
+      "description": "SL con trabajadores y local alquilado.",
+      "rules": {
+        "regime": "CORPORATE",
+        "vatPeriodicity": "QUARTER",
+        "hasEmployees": true,
+        "withholdsRent": true,
+        "intraCommunity": false,
+        "models": ["303", "111", "115", "390", "190", "180", "347", "200"],
+        "checklist": [
+          {
+            "documentType": "ISSUED_INVOICE",
+            "label": "Facturas emitidas"
+          },
+          {
+            "documentType": "RECEIVED_INVOICE",
+            "label": "Facturas recibidas y gastos"
+          },
+          {
+            "documentType": "PAYROLL",
+            "label": "Nóminas y seguros sociales"
+          },
+          {
+            "documentType": "RENT_RECEIPT",
+            "label": "Recibos del alquiler del local"
+          },
+          {
+            "documentType": "BANK_STATEMENT",
+            "label": "Extractos bancarios"
+          }
+        ]
+      }
+    },
+    {
+      "key": "comunidad-bienes",
+      "name": "Comunidad de bienes",
+      "description": "Entidad en régimen de atribución de rentas con actividad económica.",
+      "rules": {
+        "regime": "ATTRIBUTION",
+        "vatPeriodicity": "QUARTER",
+        "hasEmployees": false,
+        "withholdsRent": false,
+        "intraCommunity": false,
+        "models": ["303", "390", "184", "347"],
+        "checklist": [
+          {
+            "documentType": "ISSUED_INVOICE",
+            "label": "Facturas emitidas"
+          },
+          {
+            "documentType": "RECEIVED_INVOICE",
+            "label": "Facturas recibidas y gastos"
+          }
+        ]
+      }
+    },
+    {
+      "key": "arrendador-locales",
+      "name": "Arrendador de locales",
+      "description": "Particular que alquila locales con IVA.",
+      "rules": {
+        "regime": "NON_BUSINESS",
+        "vatPeriodicity": "QUARTER",
+        "hasEmployees": false,
+        "withholdsRent": false,
+        "intraCommunity": false,
+        "models": ["303", "390", "100"],
+        "checklist": [
+          {
+            "documentType": "ISSUED_INVOICE",
+            "label": "Facturas o recibos de alquiler emitidos"
+          },
+          {
+            "documentType": "RECEIVED_INVOICE",
+            "label": "Gastos de los inmuebles"
+          }
+        ]
+      }
+    },
+    {
+      "key": "particular-renta",
+      "name": "Particular · Solo Renta",
+      "description": "Particular sin actividad: únicamente declaración de la Renta.",
+      "rules": {
+        "regime": "NON_BUSINESS",
+        "vatPeriodicity": "NONE",
+        "hasEmployees": false,
+        "withholdsRent": false,
+        "intraCommunity": false,
+        "models": ["100"],
+        "checklist": []
+      }
+    }
+  ]
+}
