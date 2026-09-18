@@ -1,0 +1,38 @@
+@import 'tailwindcss';
+
+/* Brand tokens. Phase 6 overrides --color-primary/--color-accent per tenant. */
+@theme {
+  --color-primary: #1d4ed8;
+  --color-primary-fg: #ffffff;
+  --color-accent: #0f766e;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f4f4f5;
+  --color-fg: #18181b;
+  --color-fg-muted: #52525b;
+  --color-border: #d4d4d8;
+  --color-danger: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #60a5fa;
+    --color-primary-fg: #0b1220;
+    --color-accent: #2dd4bf;
+    --color-surface: #18181b;
+    --color-surface-muted: #27272a;
+    --color-fg: #fafafa;
+    --color-fg-muted: #a1a1aa;
+    --color-border: #3f3f46;
+    --color-danger: #fca5a5;
+  }
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-fg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

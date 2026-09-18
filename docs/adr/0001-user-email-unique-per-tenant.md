@@ -13,9 +13,10 @@ The product is white label: each gestoría runs on its own domain and must look 
 
 ## Decision
 
-Unique per tenant. Login resolves the tenant from the request host before looking up the user. Verification token identifiers are `<tenantId|platform>:<email>`. We write a small custom Auth.js adapter; there is no `Account` table because there is no OAuth.
+Unique per tenant. Login resolves the tenant from the request host before looking up the user. Verification token identifiers are `<tenantId|platform>:<email>`. No Auth.js adapter is used: both login methods are Credentials providers (`password` and `magic-link`), and the magic-link token is issued and consumed by our own service against `VerificationToken`. There is no `Account` table because there is no OAuth.
 
 ## Consequences
 
+- The magic link lands on a confirmation page and is only consumed on POST, so mail scanners that prefetch links cannot burn it.
 - Every user lookup by email needs the tenant. There is no `findByEmail(email)` without tenant.
 - Superadmins have `tenantId = NULL`; Postgres treats NULLs as distinct, so the first migration adds a partial unique index on `users(email) WHERE "tenantId" IS NULL`.
