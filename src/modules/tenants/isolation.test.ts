@@ -4,7 +4,8 @@ import { prisma, tenantDb } from '@/lib/db';
 import { listAudit } from '@/modules/audit/service';
 import { loadSessionUser, completeLogin } from '@/modules/auth/service';
 import type { SessionUser } from '@/modules/auth/permissions';
-import { getClientFor, listClientsFor } from '@/modules/clients/service';
+import { getClientFor, listAssignableManagers, listClientsFor } from '@/modules/clients/service';
+import { listTaxProfiles } from '@/modules/clients/tax-profiles/service';
 import { resetDb } from '@tests/setup/db';
 import { createTenant } from '@tests/setup/factories';
 import { seedTenantWorld } from '@tests/setup/world';
@@ -86,6 +87,14 @@ describe('tenant isolation', () => {
           code: 'NOT_FOUND',
         });
       }
+    });
+
+    it('tax profiles and staff: A sees neither the profiles nor the managers of B', async () => {
+      const admin = usersOfA[3]!;
+      expect((await listTaxProfiles(admin)).filter((profile) => profile.tenantId !== null)).toEqual(
+        [],
+      );
+      expect(await listAssignableManagers(admin)).toEqual([]);
     });
 
     it('audit: the admin of A sees no entry of B', async () => {
