@@ -1,0 +1,1203 @@
+// Approved 2026-09-18 (CLAUDE.md §8.1). Rationale for non-obvious choices: docs/adr/.
+//
+// Conventions
+// - Every business table carries tenantId. Reference/infra tables (Period, Holiday,
+//   VerificationToken, WebhookEvent) do not. AuditLog/EmailLog have nullable tenantId
+//   for platform-level events.
+// - Dates are UTC. @db.Date is used for calendar dates (deadlines, invoice dates).
+// - Money is Decimal(12,2); rates are Decimal(5,2).
+// - Soft delete (deletedAt) on Client, Document and their file-bearing siblings.
+//   Physical deletion only happens in the purge service (client erasure / tenant offboarding),
+//   which deletes in dependency order. Tenant relations are therefore Restrict (default):
+//   a tenant row cannot be dropped by accident.
+// - Cascade is used only for compositional children (lines, attachments, join rows).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // Neon: pooled url for the app, direct url for migrations
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum Role {
+  CLIENT_USER
+  MANAGER
+  SUPERVISOR
+  TENANT_ADMIN
+  SUPERADMIN
+}
+
+enum TenantStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  CANCELLED // offboarding: export available, purge scheduled (purgeAfter)
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  DELINQUENT
+}
+
+enum PeriodType {
+  MONTH
+  QUARTER
+  YEAR
+}
+
+enum ClientPeriodStatus {
+  OPEN
+  CLOSED // "documentación cerrada": uploads blocked until a manager reopens
+}
+
+enum FileKind {
+  DOCUMENT
+  PERMANENT_DOCUMENT
+  DELIVERY
+  SIGNATURE_CERTIFICATE
+  OBLIGATION_RECEIPT
+  MESSAGE_ATTACHMENT
+  INVOICE_PDF
+  BRANDING
+}
+
+enum FileStatus {
+  PENDING // multipart upload in progress
+  UPLOADED // complete, waiting for antivirus
+  CLEAN
+  INFECTED // blocked: never served
+}
+
+enum DocumentType {
+  ISSUED_INVOICE
+  RECEIVED_INVOICE
+  RECEIPT
+  PAYROLL
+  BANK_STATEMENT
+  RENT_RECEIPT
+  OTHER
+}
+
+enum DocumentStatus {
+  RECEIVED
+  IN_REVIEW
+  BOOKED
+  REJECTED
+  DUPLICATE
+}
+
+enum DocumentSource {
+  WEB
+  EMAIL
+  WHATSAPP
+}
+
+enum ExtractionStatus {
+  NOT_APPLICABLE
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum PermanentDocumentCategory {
+  DEED
+  CERTIFICATE
+  CENSUS_REGISTRATION
+  POWER_OF_ATTORNEY
+  ID_DOCUMENT
+  CONTRACT
+  OTHER
+}
+
+enum ObligationStatus {
+  PENDING_DOCS
+  IN_PROGRESS
+  FILED
+}
+
+enum ObligationResult {
+  TO_PAY
+  TO_REFUND
+  ZERO
+}
+
+enum ChecklistItemSource {
+  AUTO
+  MANUAL
+}
+
+enum ThreadType {
+  PERIOD
+  REQUIREMENT
+  GENERAL
+  INTERNAL
+}
+
+enum ThreadStatus {
+  OPEN
+  CLOSED
+}
+
+enum MessageSource {
+  WEB
+  EMAIL
+  SYSTEM
+}
+
+enum TemplateKind {
+  MESSAGE // canned replies used by managers in threads
+  EMAIL // overrides of system emails/reminders, addressed by key
+}
+
+enum DeliveryCategory {
+  FILED_FORM
+  LEDGER
+  LETTER
+  CERTIFICATE
+  OTHER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CARD
+  SEPA_DEBIT
+  BANK_TRANSFER
+  OTHER
+}
+
+enum NotificationType {
+  DOCUMENT_RECEIVED
+  DOCUMENT_REJECTED
+  OBLIGATION_FILED
+  DEADLINE_REMINDER
+  MISSING_DOCS_REMINDER
+  NEW_MESSAGE
+  MENTION
+  DELIVERY_AVAILABLE
+  SIGNATURE_REQUESTED
+  INVOICE_ISSUED
+  INVOICE_OVERDUE
+  PERMANENT_DOC_EXPIRING
+  CLIENT_INACTIVE
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+}
+
+enum HolidayScope {
+  NATIONAL
+  REGIONAL
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+  LOGGED_ONLY // dev fallback: no provider configured
+}
+
+enum WebhookProvider {
+  STRIPE
+  GOCARDLESS
+  RESEND
+}
+
+enum ReminderKind {
+  OBLIGATION_DEADLINE
+  MISSING_DOCS
+  PERMANENT_DOC_EXPIRY
+  INVOICE_OVERDUE
+  CLIENT_INACTIVITY
+}
+
+enum DataExportStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+  EXPIRED
+}
+
+enum LegalDocumentType {
+  DPA_TENANT // data processing agreement platform <-> gestoría
+  DPA_CLIENT // data processing agreement gestoría <-> client
+}
+
+// ─────────────────────── Tenancy, users, auth ───────────────────────
+
+model Tenant {
+  id     String       @id @default(cuid())
+  name   String
+  slug   String       @unique
+  status TenantStatus @default(PENDING_VERIFICATION)
+  plan   String       @default("standard") // plans are not specified yet; validated by Zod
+
+  // Legal identity: invoice issuer and DPA party
+  legalName    String?
+  taxId        String?
+  addressLine  String?
+  postalCode   String?
+  city         String?
+  province     String?
+  country      String  @default("ES")
+  contactEmail String?
+  phone        String?
+
+  // White label
+  customDomain            String?   @unique
+  customDomainToken       String? // expected TXT record value
+  customDomainVerifiedAt  DateTime?
+  sendingDomain           String?
+  sendingDomainProviderId String?
+  sendingDomainVerifiedAt DateTime?
+  branding                Json      @default("{}") // logo/favicon file ids, colors, sender name
+  reminderSettings        Json      @default("{}") // offsets, enabled flags, inactivity days
+  settings                Json      @default("{}") // rejection reasons, retention years, dunning, export format
+
+  onboardingCompletedAt DateTime?
+  cancelledAt           DateTime?
+  purgeAfter            DateTime? // physical deletion date (cancelledAt + 30d)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  users               User[]
+  userSessions        UserSession[]
+  supportAccessGrants SupportAccessGrant[]
+  legalAcceptances    LegalAcceptance[]
+  clients             Client[]
+  clientUsers         ClientUser[]
+  taxProfiles         TaxProfile[]
+  clientPeriods       ClientPeriod[]
+  files               StoredFile[]
+  documents           Document[]
+  permanentDocuments  PermanentDocument[]
+  obligations         Obligation[]
+  checklistItems      ChecklistItem[]
+  threads             Thread[]
+  messages            Message[]
+  messageAttachments  MessageAttachment[]
+  threadReads         ThreadRead[]
+  templates           Template[]
+  deliveries          Delivery[]
+  recurringFees       RecurringFee[]
+  invoiceSeries       InvoiceSeries[]
+  invoices            Invoice[]
+  invoiceLines        InvoiceLine[]
+  notifications       Notification[]
+  pushSubscriptions   PushSubscription[]
+  savedViews          SavedView[]
+  reminderLogs        ReminderLog[]
+  aiUsageLogs         AiUsageLog[]
+  dataExports         DataExport[]
+
+  @@index([status])
+  @@map("tenants")
+}
+
+model User {
+  id       String  @id @default(cuid())
+  tenantId String? // null only for SUPERADMIN
+  tenant   Tenant? @relation(fields: [tenantId], references: [id])
+
+  email           String // lowercased; unique per tenant (white label: no cross-tenant leaks)
+  emailVerifiedAt DateTime?
+  passwordHash    String?
+  name            String
+  role            Role
+  status          UserStatus @default(INVITED)
+  locale          String     @default("es")
+
+  totpSecret         String? // encrypted at application level (AES-256-GCM)
+  totpEnabledAt      DateTime?
+  recoveryCodeHashes String[] // consumed codes are removed
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  notificationPrefs  Json      @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions            UserSession[]
+  clientLinks         ClientUser[]
+  assignedClients     Client[]             @relation("ClientManager")
+  documentsUploaded   Document[]           @relation("DocumentUploader")
+  documentsConfirmed  Document[]           @relation("DocumentConfirmer")
+  documentsProcessed  Document[]           @relation("DocumentProcessor")
+  permanentDocuments  PermanentDocument[]
+  obligationsFiled    Obligation[]
+  clientPeriodsClosed ClientPeriod[]
+  threadsCreated      Thread[]
+  messages            Message[]
+  threadReads         ThreadRead[]
+  deliveriesUploaded  Delivery[]           @relation("DeliveryUploader")
+  deliveriesSigned    Delivery[]           @relation("DeliverySigner")
+  notifications       Notification[]
+  pushSubscriptions   PushSubscription[]
+  savedViews          SavedView[]
+  supportGrantsGiven  SupportAccessGrant[]
+  legalAcceptances    LegalAcceptance[]
+  dataExports         DataExport[]
+
+  // Note: Postgres treats NULL tenantId as distinct; the first migration adds a partial
+  // unique index on (email) WHERE "tenantId" IS NULL for superadmins.
+  @@unique([tenantId, email])
+  @@index([tenantId, role])
+  @@map("users")
+}
+
+// Server-side session registry. Auth.js runs with JWT strategy (required by the
+// Credentials provider); the JWT carries this id and is checked on every request,
+// which gives us revocation and the 12h / 30d expiry per role.
+model UserSession {
+  id         String    @id @default(cuid())
+  tenantId   String?
+  tenant     Tenant?   @relation(fields: [tenantId], references: [id])
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+// Auth.js verification tokens (magic link, invitations, email verification).
+// identifier = "<tenantId|platform>:<email>".
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// "Modo soporte": a tenant admin grants superadmins time-boxed access. Every use is audited.
+model SupportAccessGrant {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  grantedById String
+  grantedBy   User      @relation(fields: [grantedById], references: [id])
+  reason      String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+
+  @@index([tenantId, expiresAt])
+  @@index([grantedById])
+  @@map("support_access_grants")
+}
+
+model LegalAcceptance {
+  id           String            @id @default(cuid())
+  tenantId     String
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  userId       String
+  user         User              @relation(fields: [userId], references: [id])
+  clientId     String?
+  client       Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  documentType LegalDocumentType
+  version      String
+  contentHash  String // SHA-256 of the rendered text that was accepted
+  ip           String?
+  userAgent    String?
+  acceptedAt   DateTime          @default(now())
+
+  @@index([tenantId, documentType])
+  @@index([userId])
+  @@index([clientId])
+  @@map("legal_acceptances")
+}
+
+// ───────────────────────── Clients & tax profiles ─────────────────────────
+
+model Client {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  legalName   String // razón social / nombre y apellidos
+  tradeName   String?
+  taxId       String // NIF/CIF/NIE, normalized uppercase, control letter validated
+  email       String?
+  phone       String?
+  addressLine String?
+  postalCode  String?
+  city        String?
+  province    String?
+  country     String  @default("ES")
+
+  taxProfileId      String?
+  taxProfile        TaxProfile?  @relation(fields: [taxProfileId], references: [id])
+  assignedManagerId String?
+  assignedManager   User?        @relation("ClientManager", fields: [assignedManagerId], references: [id])
+  status            ClientStatus @default(ACTIVE)
+  tags              String[]
+  internalNotes     String?      @db.Text // never selected by client-facing repositories (tested)
+
+  inboundEmailCode String  @unique // <tenant-slug>-<code>@docs.<sending-domain>
+  isSample         Boolean @default(false) // onboarding sample data, removable in one click
+
+  // Billing provider references
+  preferredPaymentMethod PaymentMethod?
+  stripeCustomerId       String?
+  gocardlessMandateId    String?
+
+  lastActivityAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  purgeAfter     DateTime? // erasure requested: physical deletion after 30-day grace period
+
+  users              ClientUser[]
+  periods            ClientPeriod[]
+  documents          Document[]
+  permanentDocuments PermanentDocument[]
+  obligations        Obligation[]
+  checklistItems     ChecklistItem[]
+  threads            Thread[]
+  deliveries         Delivery[]
+  recurringFees      RecurringFee[]
+  invoices           Invoice[]
+  legalAcceptances   LegalAcceptance[]
+  dataExports        DataExport[]
+
+  @@unique([tenantId, taxId])
+  @@index([tenantId, status])
+  @@index([tenantId, assignedManagerId])
+  @@index([tenantId, legalName])
+  @@index([taxProfileId])
+  @@index([assignedManagerId])
+  @@map("clients")
+}
+
+model ClientUser {
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([clientId, userId])
+  @@index([userId])
+  @@index([tenantId])
+  @@map("client_users")
+}
+
+model TaxProfile {
+  id           String       @id @default(cuid())
+  tenantId     String? // null = system template (read-only; tenants clone and edit)
+  tenant       Tenant?      @relation(fields: [tenantId], references: [id])
+  name         String
+  description  String?
+  // Zod-validated: regime, vatPeriodicity, hasEmployees, withholdsRent, intraCommunity,
+  // models[], checklist[] (required document types per period)
+  rules        Json
+  clonedFromId String?
+  clonedFrom   TaxProfile?  @relation("TaxProfileClone", fields: [clonedFromId], references: [id], onDelete: SetNull)
+  clones       TaxProfile[] @relation("TaxProfileClone")
+  archivedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  clients Client[]
+
+  @@index([tenantId])
+  @@index([clonedFromId])
+  @@map("tax_profiles")
+}
+
+// Global reference table. Per-client state lives in ClientPeriod.
+model Period {
+  id      String     @id @default(cuid())
+  year    Int
+  type    PeriodType
+  ordinal Int // MONTH 1-12, QUARTER 1-4, YEAR 0
+
+  clientPeriods  ClientPeriod[]
+  documents      Document[]
+  obligations    Obligation[]
+  checklistItems ChecklistItem[]
+  threads        Thread[]
+  deliveries     Delivery[]
+
+  @@unique([year, type, ordinal])
+  @@map("periods")
+}
+
+model ClientPeriod {
+  id         String             @id @default(cuid())
+  tenantId   String
+  tenant     Tenant             @relation(fields: [tenantId], references: [id])
+  clientId   String
+  client     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periodId   String
+  period     Period             @relation(fields: [periodId], references: [id])
+  status     ClientPeriodStatus @default(OPEN)
+  closedAt   DateTime?
+  closedById String?
+  closedBy   User?              @relation(fields: [closedById], references: [id])
+
+  @@unique([clientId, periodId])
+  @@index([tenantId, periodId, status])
+  @@index([periodId])
+  @@index([closedById])
+  @@map("client_periods")
+}
+
+// ───────────────────────────── Files ─────────────────────────────
+
+// Single registry of every object in the bucket: upload lifecycle, antivirus state,
+// hash and size live here once instead of being repeated on 7 tables. It is also the
+// list the purge service walks to leave the bucket clean.
+model StoredFile {
+  id                String     @id @default(cuid())
+  tenantId          String
+  tenant            Tenant     @relation(fields: [tenantId], references: [id])
+  kind              FileKind
+  status            FileStatus @default(PENDING)
+  storageKey        String     @unique
+  originalName      String
+  mimeType          String
+  sizeBytes         Int
+  sha256            String?
+  multipartUploadId String?
+  scannedAt         DateTime?
+  createdAt         DateTime   @default(now())
+  deletedAt         DateTime?
+
+  document            Document?
+  permanentDocument   PermanentDocument?
+  obligationReceipt   Obligation?
+  messageAttachment   MessageAttachment?
+  delivery            Delivery?          @relation("DeliveryFile")
+  deliveryCertificate Delivery?          @relation("DeliveryCertificate")
+  invoicePdf          Invoice?
+
+  @@index([tenantId, sha256])
+  @@index([tenantId, status])
+  @@map("stored_files")
+}
+
+// ─────────────────────────── Documents ───────────────────────────
+
+model Document {
+  id       String     @id @default(cuid())
+  tenantId String
+  tenant   Tenant     @relation(fields: [tenantId], references: [id])
+  clientId String
+  client   Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periodId String?
+  period   Period?    @relation(fields: [periodId], references: [id])
+  fileId   String     @unique
+  file     StoredFile @relation(fields: [fileId], references: [id])
+
+  type            DocumentType   @default(OTHER)
+  status          DocumentStatus @default(RECEIVED)
+  source          DocumentSource @default(WEB)
+  rejectionReason String? // label snapshot from the tenant's configurable list
+  rejectionNote   String?
+  duplicateOfId   String?
+  duplicateOf     Document?      @relation("DocumentDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates      Document[]     @relation("DocumentDuplicate")
+
+  uploadedById  String? // null for inbound email from an unknown sender
+  uploadedBy    User?     @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  processedById String? // who booked / rejected / marked duplicate
+  processedBy   User?     @relation("DocumentProcessor", fields: [processedById], references: [id])
+  processedAt   DateTime? // feeds "average processing time"
+
+  // AI extraction
+  extractionStatus        ExtractionStatus @default(PENDING)
+  supplierName            String?
+  supplierTaxId           String?
+  invoiceNumber           String?
+  invoiceDate             DateTime?        @db.Date
+  taxBase                 Decimal?         @db.Decimal(12, 2)
+  vatRate                 Decimal?         @db.Decimal(5, 2)
+  vatAmount               Decimal?         @db.Decimal(12, 2)
+  total                   Decimal?         @db.Decimal(12, 2)
+  currency                String?          @default("EUR")
+  confidence              Float? // 0..1
+  extractionRaw           Json? // provider response, for debugging and re-validation
+  extractionConfirmed     Boolean          @default(false)
+  extractionConfirmedById String?
+  extractionConfirmedBy   User?            @relation("DocumentConfirmer", fields: [extractionConfirmedById], references: [id])
+  extractionConfirmedAt   DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  aiUsageLogs AiUsageLog[]
+
+  @@index([tenantId, status, createdAt]) // manager inbox
+  @@index([tenantId, clientId, periodId])
+  @@index([tenantId, clientId, supplierTaxId, invoiceNumber, invoiceDate]) // duplicate detection
+  @@index([clientId])
+  @@index([periodId])
+  @@index([duplicateOfId])
+  @@index([uploadedById])
+  @@index([processedById])
+  @@index([extractionConfirmedById])
+  @@map("documents")
+}
+
+model PermanentDocument {
+  id           String                    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant                    @relation(fields: [tenantId], references: [id])
+  clientId     String
+  client       Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  fileId       String                    @unique
+  file         StoredFile                @relation(fields: [fileId], references: [id])
+  category     PermanentDocumentCategory @default(OTHER)
+  title        String
+  expiresAt    DateTime?                 @db.Date
+  uploadedById String?
+  uploadedBy   User?                     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([tenantId, expiresAt])
+  @@index([clientId])
+  @@index([uploadedById])
+  @@map("permanent_documents")
+}
+
+// ───────────────────── Obligations & checklists ─────────────────────
+
+model Obligation {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  model    String // "303", "130"... open list, validated against data/tax-calendar-<year>.json
+  periodId String
+  period   Period @relation(fields: [periodId], references: [id])
+
+  dueDate         DateTime          @db.Date // computed: AEAT calendar + business-day rule
+  status          ObligationStatus  @default(PENDING_DOCS)
+  estimatedAmount Decimal?          @db.Decimal(12, 2) // "importe previsto" shown to the client
+  result          ObligationResult?
+  resultAmount    Decimal?          @db.Decimal(12, 2)
+  directDebit     Boolean           @default(false)
+  receiptFileId   String?           @unique
+  receiptFile     StoredFile?       @relation(fields: [receiptFileId], references: [id])
+  filedAt         DateTime?
+  filedById       String?
+  filedBy         User?             @relation(fields: [filedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, model, periodId]) // makes generation idempotent
+  @@index([tenantId, dueDate, status])
+  @@index([tenantId, clientId])
+  @@index([periodId])
+  @@index([filedById])
+  @@map("obligations")
+}
+
+model ChecklistItem {
+  id           String              @id @default(cuid())
+  tenantId     String
+  tenant       Tenant              @relation(fields: [tenantId], references: [id])
+  clientId     String
+  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periodId     String
+  period       Period              @relation(fields: [periodId], references: [id])
+  documentType DocumentType
+  label        String? // custom text for manual items
+  source       ChecklistItemSource @default(AUTO)
+  fulfilled    Boolean             @default(false)
+  fulfilledAt  DateTime?
+  dismissedAt  DateTime? // manager removed an AUTO item; survives regeneration
+  createdAt    DateTime            @default(now())
+
+  @@index([tenantId, periodId, fulfilled]) // tenant-wide traffic-light view
+  @@index([clientId, periodId])
+  @@index([periodId])
+  @@map("checklist_items")
+}
+
+// ─────────────────────────── Messaging ───────────────────────────
+
+model Thread {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+  clientId      String
+  client        Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periodId      String?
+  period        Period?      @relation(fields: [periodId], references: [id])
+  subject       String
+  type          ThreadType   @default(GENERAL) // INTERNAL is never visible to CLIENT_USER
+  status        ThreadStatus @default(OPEN)
+  replyToken    String       @unique @default(cuid()) // reply+<token>@... inbound routing
+  createdById   String?
+  createdBy     User?        @relation(fields: [createdById], references: [id])
+  lastMessageAt DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+
+  messages Message[]
+  reads    ThreadRead[]
+
+  @@index([tenantId, clientId, lastMessageAt])
+  @@index([tenantId, type, status])
+  @@index([clientId])
+  @@index([periodId])
+  @@index([createdById])
+  @@map("threads")
+}
+
+model Message {
+  id               String        @id @default(cuid())
+  tenantId         String
+  tenant           Tenant        @relation(fields: [tenantId], references: [id])
+  threadId         String
+  thread           Thread        @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId         String? // null for SYSTEM or inbound email from an unknown address
+  author           User?         @relation(fields: [authorId], references: [id])
+  senderEmail      String?
+  source           MessageSource @default(WEB)
+  body             String        @db.Text
+  mentionedUserIds String[] // @mentions, internal threads only
+  createdAt        DateTime      @default(now())
+
+  attachments MessageAttachment[]
+
+  @@index([threadId, createdAt])
+  @@index([tenantId])
+  @@index([authorId])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id        String     @id @default(cuid())
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  messageId String
+  message   Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileId    String     @unique
+  file      StoredFile @relation(fields: [fileId], references: [id])
+
+  @@index([messageId])
+  @@index([tenantId])
+  @@map("message_attachments")
+}
+
+// Read pointer per user and thread. "Read by" for a message = users whose
+// lastReadAt >= message.createdAt. Avoids one row per message per reader.
+model ThreadRead {
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  threadId   String
+  thread     Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt DateTime @default(now())
+
+  @@id([threadId, userId])
+  @@index([userId])
+  @@index([tenantId])
+  @@map("thread_reads")
+}
+
+// Tenant-editable texts. kind=EMAIL rows override a system default addressed by key
+// (e.g. "reminder.deadline.7d"); defaults live in code. kind=MESSAGE rows are canned replies.
+model Template {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  kind      TemplateKind
+  key       String?
+  name      String
+  subject   String?
+  body      String       @db.Text // supports {{cliente}}, {{plazo}}, {{pendientes}}
+  locale    String       @default("es")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([tenantId, key, locale])
+  @@index([tenantId, kind])
+  @@map("templates")
+}
+
+// ─────────────────────────── Deliveries ───────────────────────────
+
+model Delivery {
+  id           String           @id @default(cuid())
+  tenantId     String
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  clientId     String
+  client       Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periodId     String?
+  period       Period?          @relation(fields: [periodId], references: [id])
+  fileId       String           @unique
+  file         StoredFile       @relation("DeliveryFile", fields: [fileId], references: [id])
+  title        String
+  category     DeliveryCategory @default(OTHER)
+  visibleFrom  DateTime         @default(now())
+  uploadedById String?
+  uploadedBy   User?            @relation("DeliveryUploader", fields: [uploadedById], references: [id])
+
+  // Simple signature
+  requiresSignature  Boolean     @default(false)
+  signedAt           DateTime? // timestamp seal
+  signedById         String?
+  signedBy           User?       @relation("DeliverySigner", fields: [signedById], references: [id])
+  signatureIp        String?
+  signatureUserAgent String?
+  signedFileHash     String? // SHA-256 of the file at signing time
+  certificateFileId  String?     @unique
+  certificateFile    StoredFile? @relation("DeliveryCertificate", fields: [certificateFileId], references: [id])
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  // View/download history is read from AuditLog (entity = "Delivery").
+
+  @@index([tenantId, clientId, visibleFrom])
+  @@index([clientId])
+  @@index([periodId])
+  @@index([uploadedById])
+  @@index([signedById])
+  @@map("deliveries")
+}
+
+// ─────────────────────────── Billing ───────────────────────────
+
+model RecurringFee {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept   String
+  amount    Decimal   @db.Decimal(12, 2)
+  vatRate   Decimal   @default(21) @db.Decimal(5, 2)
+  irpfRate  Decimal   @default(0) @db.Decimal(5, 2)
+  active    Boolean   @default(true)
+  startsOn  DateTime  @db.Date
+  endsOn    DateTime? @db.Date
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([tenantId, active])
+  @@index([clientId])
+  @@map("recurring_fees")
+}
+
+// nextNumber is incremented with a row lock inside the issuing transaction:
+// no gaps, no duplicates.
+model InvoiceSeries {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  code       String // e.g. "2026" or "A"
+  nextNumber Int      @default(1)
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  invoices Invoice[]
+
+  @@unique([tenantId, code])
+  @@map("invoice_series")
+}
+
+model Invoice {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id])
+  clientId   String? // SetNull on client erasure: invoices must be kept by law; recipientSnapshot remains
+  client     Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  seriesId   String
+  series     InvoiceSeries @relation(fields: [seriesId], references: [id])
+  number     Int? // assigned on ISSUED, null while DRAFT
+  fullNumber String?
+
+  status        InvoiceStatus  @default(DRAFT)
+  billingMonth  String? // "2026-09" for auto-generated fees; makes the monthly job idempotent
+  issueDate     DateTime?      @db.Date
+  dueDate       DateTime?      @db.Date
+  paidAt        DateTime?
+  paymentMethod PaymentMethod?
+
+  subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  vatAmount  Decimal @default(0) @db.Decimal(12, 2)
+  irpfAmount Decimal @default(0) @db.Decimal(12, 2)
+  total      Decimal @default(0) @db.Decimal(12, 2)
+
+  issuerSnapshot    Json? // frozen legal data at issue time
+  recipientSnapshot Json?
+
+  stripePaymentIntentId String?
+  gocardlessPaymentId   String?
+
+  // Verifactu (InvoiceCompliance): filled by the implementation when enabled
+  previousHash String?
+  hash         String?
+  qrData       String?
+
+  pdfFileId String?     @unique
+  pdfFile   StoredFile? @relation(fields: [pdfFileId], references: [id])
+
+  // Factura rectificativa: an issued invoice is never edited or deleted; it is cancelled
+  // by issuing a rectifying invoice that points to it.
+  rectifiesId String?
+  rectifies   Invoice?  @relation("InvoiceRectification", fields: [rectifiesId], references: [id])
+  rectifiedBy Invoice[] @relation("InvoiceRectification")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines InvoiceLine[]
+
+  @@unique([seriesId, number])
+  @@unique([tenantId, clientId, billingMonth])
+  @@index([tenantId, status, dueDate])
+  @@index([clientId])
+  @@index([rectifiesId])
+  @@index([stripePaymentIntentId])
+  @@index([gocardlessPaymentId])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id          String  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id])
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Decimal @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(12, 2)
+  vatRate     Decimal @db.Decimal(5, 2)
+  irpfRate    Decimal @default(0) @db.Decimal(5, 2)
+  amount      Decimal @db.Decimal(12, 2) // quantity * unitPrice, before taxes
+  sortOrder   Int     @default(0)
+
+  @@index([invoiceId])
+  @@index([tenantId])
+  @@map("invoice_lines")
+}
+
+// ─────────────────────── Notifications & UI state ───────────────────────
+
+model Notification {
+  id        String              @id @default(cuid())
+  tenantId  String
+  tenant    Tenant              @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  channel   NotificationChannel @default(IN_APP)
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([userId, readAt, createdAt]) // unread counter
+  @@index([tenantId])
+  @@map("notifications")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tenantId])
+  @@map("push_subscriptions")
+}
+
+model SavedView {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope     String // "inbox", "clients", "traffic-light"
+  name      String
+  filters   Json
+  sort      Json?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, scope])
+  @@index([tenantId])
+  @@map("saved_views")
+}
+
+// ─────────────────────── Audit, logs, infrastructure ───────────────────────
+
+// Append-only. No FKs on purpose: rows must never be touched by cascades or SetNull.
+// The first migration adds a trigger that rejects UPDATE and DELETE unless the purge
+// service sets a transaction-local flag during tenant offboarding. No repository
+// exposes update/delete for this model.
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String? // null for platform-level events
+  actorId   String? // null for system/worker actions
+  actorRole Role?
+  action    String // "document.download", "auth.login", "support.enable"...
+  entity    String
+  entityId  String?
+  ip        String?
+  userAgent String?
+  diff      Json?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entity, entityId])
+  @@index([tenantId, actorId])
+  @@map("audit_logs")
+}
+
+model Holiday {
+  id     String       @id @default(cuid())
+  date   DateTime     @db.Date
+  scope  HolidayScope @default(NATIONAL)
+  region String       @default("ES") // "ES" national, ISO 3166-2 ("ES-CT") for regional
+  name   String
+
+  @@unique([date, region])
+  @@map("holidays")
+}
+
+model EmailLog {
+  id                String      @id @default(cuid())
+  tenantId          String?
+  toAddress         String
+  fromAddress       String
+  replyTo           String?
+  subject           String
+  templateKey       String?
+  bodyText          String?     @db.Text
+  bodyHtml          String?     @db.Text
+  status            EmailStatus @default(QUEUED)
+  providerMessageId String?
+  error             String?
+  createdAt         DateTime    @default(now())
+  sentAt            DateTime?
+
+  @@index([tenantId, createdAt])
+  @@map("email_log")
+}
+
+// Idempotency ledger for every inbound webhook (payments and inbound email).
+model WebhookEvent {
+  id          String          @id @default(cuid())
+  provider    WebhookProvider
+  externalId  String
+  eventType   String?
+  payload     Json
+  receivedAt  DateTime        @default(now())
+  processedAt DateTime?
+  error       String?
+
+  @@unique([provider, externalId])
+  @@map("webhook_events")
+}
+
+// Idempotency ledger for scheduled notices: one row per (kind, entity, step),
+// e.g. (OBLIGATION_DEADLINE, <obligationId>, "7"). Re-running a cron never re-sends.
+model ReminderLog {
+  id       String       @id @default(cuid())
+  tenantId String
+  tenant   Tenant       @relation(fields: [tenantId], references: [id])
+  kind     ReminderKind
+  entityId String
+  step     String
+  sentAt   DateTime     @default(now())
+
+  @@unique([kind, entityId, step])
+  @@index([tenantId, sentAt])
+  @@map("reminder_logs")
+}
+
+model AiUsageLog {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  documentId   String?
+  document     Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  provider     String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([documentId])
+  @@map("ai_usage_logs")
+}
+
+// Client data export (right of access) when clientId is set; full tenant export otherwise.
+model DataExport {
+  id            String           @id @default(cuid())
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  clientId      String?
+  client        Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  requestedById String?
+  requestedBy   User?            @relation(fields: [requestedById], references: [id])
+  status        DataExportStatus @default(PENDING)
+  storageKey    String?
+  sizeBytes     BigInt?
+  error         String?
+  createdAt     DateTime         @default(now())
+  completedAt   DateTime?
+  expiresAt     DateTime?
+
+  @@index([tenantId, createdAt])
+  @@index([clientId])
+  @@index([requestedById])
+  @@map("data_exports")
+}
