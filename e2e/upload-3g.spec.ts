@@ -10,7 +10,7 @@ test('uploads 10 photos over a throttled 3G connection without losing any', asyn
   await login(page, 'cliente@demo.es');
   await page.goto('/subir');
 
-  const photos = [];
+  const photos: Array<Awaited<ReturnType<typeof makePhoto>>> = [];
   for (let i = 1; i <= 10; i++) photos.push(await makePhoto(page, `${tag}-${i}.jpg`));
 
   // Chrome DevTools "Fast 3G": 1.6 Mbps down, 750 kbps up, 150 ms RTT (values in bytes/s).

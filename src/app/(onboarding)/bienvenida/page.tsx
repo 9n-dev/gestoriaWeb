@@ -171,19 +171,7 @@ async function Step({ step }: { step: number }) {
   });
   return (
     <>
-      {pending > 0 ? (
-        <>
-          <p className="text-sm text-fg-muted">
-            Enviaremos a cada cliente con correo electrónico un enlace personal para entrar en tu
-            portal.
-          </p>
-          <BulkInviteForm pending={pending} />
-        </>
-      ) : (
-        <p className="text-sm text-fg-muted">
-          No hay clientes pendientes de invitar. Podrás invitarlos desde la ficha de cada cliente.
-        </p>
-      )}
+      <BulkInviteForm pending={pending} />
       <div className="flex flex-col gap-3 border-t border-border pt-4">
         <h3 className="font-medium">¿Quieres probar con datos de ejemplo?</h3>
         <p className="text-sm text-fg-muted">

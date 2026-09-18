@@ -8,9 +8,10 @@ summary and permission matrix are in [`docs/foundation.md`](docs/foundation.md);
 each decision is in [`docs/adr/`](docs/adr). Known shortcuts live in
 [`docs/tech-debt.md`](docs/tech-debt.md).
 
-**Status: phase 2 of 10.** A gestoría can sign up, go through onboarding, import and invite its clients,
-assign tax profiles and get every upcoming tax obligation with its real deadline. Documents, checklists,
-messaging and billing arrive in later phases.
+**Status: phase 3 of 10.** Gestorías sign up, onboard, import and invite clients and get their tax
+obligations generated; clients send documents from the web, the phone camera or by email; every file
+is scanned and normalised by a worker; managers process them from a keyboard-driven inbox. Checklists,
+reminders, messaging and billing arrive in later phases.
 
 ## Requirements
 
@@ -25,8 +26,11 @@ docker compose up -d            # Postgres (5433), Redis, MinIO (+ bucket)
 npm install
 npm run db:migrate              # apply migrations to the development database
 npm run db:seed                 # demo tenants and users
-npm run dev
+npm run dev                     # the app
+npm run worker                  # in a second terminal: file pipeline (antivirus, HEIC, duplicates)
 ```
+
+Without the worker, uploaded files stay in "Analizando…" and cannot be opened or processed.
 
 Every demo user has the password `demo1234`. Browsers resolve `*.localhost` on their own, no
 `/etc/hosts` needed.
@@ -50,16 +54,17 @@ ClamAV is heavy and not needed until phase 3: `docker compose --profile antiviru
 
 ## Scripts
 
-| Script                            | What it does                                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `npm run dev` / `build` / `start` | Next.js                                                                                          |
-| `npm run lint`                    | ESLint + Prettier check (`npm run format` fixes formatting)                                      |
-| `npm run typecheck`               | `tsc --noEmit`                                                                                   |
-| `npm test`                        | Vitest: unit + integration, against the `gestoria_test` database (migrated automatically)        |
-| `npm run test:e2e`                | Placeholder until phase 3 (Playwright)                                                           |
-| `npm run db:migrate`              | `prisma migrate dev`                                                                             |
-| `npm run db:seed`                 | Idempotent demo seed                                                                             |
-| `npm run db:reset`                | Drop, migrate and seed the development database. Run it yourself: Prisma blocks it for AI agents |
+| Script                            | What it does                                                                                                                                                                             |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev` / `build` / `start` | Next.js                                                                                                                                                                                  |
+| `npm run lint`                    | ESLint + Prettier check (`npm run format` fixes formatting)                                                                                                                              |
+| `npm run typecheck`               | `tsc --noEmit`                                                                                                                                                                           |
+| `npm test`                        | Vitest: unit + integration, against the `gestoria_test` database (migrated automatically)                                                                                                |
+| `npm run worker`                  | BullMQ worker (`src/jobs/worker.ts`)                                                                                                                                                     |
+| `npm run test:e2e`                | Playwright: onboarding, upload → book/reject by keyboard, 10 photos over 3G. Starts the app and a worker itself; needs `docker compose up -d` and `npx playwright install chromium` once |
+| `npm run db:migrate`              | `prisma migrate dev`                                                                                                                                                                     |
+| `npm run db:seed`                 | Idempotent demo seed                                                                                                                                                                     |
+| `npm run db:reset`                | Drop, migrate and seed the development database. Run it yourself: Prisma blocks it for AI agents                                                                                         |
 
 Tests need `docker compose up -d` (Postgres). They never touch the development database.
 
@@ -68,27 +73,32 @@ Tests need `docker compose up -d` (Postgres). They never touch the development d
 Validated with Zod in [`src/env.ts`](src/env.ts); the app, the build and the tests refuse to start
 with an incomplete configuration. Never read `process.env` elsewhere (ESLint enforces it).
 
-| Variable                                                                            | Required | Notes                                                                             |
-| ----------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                                      | yes      | Pooled connection in production (Neon)                                            |
-| `DIRECT_URL`                                                                        | yes      | Direct connection for migrations. Same as `DATABASE_URL` in development           |
-| `REDIS_URL`                                                                         | yes      | Redis in Docker / Upstash                                                         |
-| `AUTH_SECRET`                                                                       | yes      | ≥ 32 chars. `openssl rand -base64 32`                                             |
-| `APP_DOMAIN`                                                                        | yes      | Platform base domain. Tenants live on `<slug>.<APP_DOMAIN>`                       |
-| `DEFAULT_TENANT_SLUG`                                                               | no       | Serves one tenant on the bare `APP_DOMAIN` (which otherwise is the platform host) |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | yes      | MinIO in development, Cloudflare R2 in production                                 |
-| `RESEND_API_KEY`                                                                    | no       | Without it, emails go to `email_log` + console                                    |
-| `EMAIL_FROM`                                                                        | no       | Default `no-reply@localhost`                                                      |
-| `DEMO_MODE`                                                                         | no       | `true` shows the demo banner and demo users on the login page                     |
-| `SENTRY_DSN`                                                                        | no       | Not wired yet (TD-011)                                                            |
+| Variable                                                                            | Required | Notes                                                                                                                            |
+| ----------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                                      | yes      | Pooled connection in production (Neon)                                                                                           |
+| `DIRECT_URL`                                                                        | yes      | Direct connection for migrations. Same as `DATABASE_URL` in development                                                          |
+| `REDIS_URL`                                                                         | yes      | Redis in Docker / Upstash                                                                                                        |
+| `AUTH_SECRET`                                                                       | yes      | ≥ 32 chars. `openssl rand -base64 32`                                                                                            |
+| `APP_DOMAIN`                                                                        | yes      | Platform base domain. Tenants live on `<slug>.<APP_DOMAIN>`                                                                      |
+| `DEFAULT_TENANT_SLUG`                                                               | no       | Serves one tenant on the bare `APP_DOMAIN` (which otherwise is the platform host)                                                |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | yes      | MinIO in development, Cloudflare R2 in production                                                                                |
+| `RESEND_API_KEY`                                                                    | no       | Without it, emails go to `email_log` + console                                                                                   |
+| `EMAIL_FROM`                                                                        | no       | Default `no-reply@localhost`                                                                                                     |
+| `CLAMAV_HOST`, `CLAMAV_PORT`                                                        | no       | clamd address. Empty = development fake scanner                                                                                  |
+| `RESEND_WEBHOOK_SECRET`                                                             | no       | Signing secret of the Resend inbound webhook. Empty = only the unsigned development payload is accepted, and never in production |
+| `INBOUND_EMAIL_DOMAIN`                                                              | no       | Domain of the per-client addresses `<slug>-<code>@…`. Default `docs.localhost`                                                   |
+| `DEMO_MODE`                                                                         | no       | `true` shows the demo banner and demo users on the login page                                                                    |
+| `SENTRY_DSN`                                                                        | no       | Not wired yet (TD-011)                                                                                                           |
 
 ### External services and their development fakes
 
-| Service        | Needed for                  | Without a key                                                                        |
-| -------------- | --------------------------- | ------------------------------------------------------------------------------------ |
-| Resend         | Sending email               | `sendEmail()` stores the message in `email_log` (status `LOGGED_ONLY`) and prints it |
-| Cloudflare R2  | File storage                | MinIO from docker-compose (same S3 API)                                              |
-| Neon / Upstash | Production Postgres / Redis | Docker containers                                                                    |
+| Service        | Needed for                  | Without a key                                                                                                                                                                                           |
+| -------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Resend         | Sending email               | `sendEmail()` stores the message in `email_log` (status `LOGGED_ONLY`) and prints it                                                                                                                    |
+| Cloudflare R2  | File storage                | MinIO from docker-compose (same S3 API)                                                                                                                                                                 |
+| Neon / Upstash | Production Postgres / Redis | Docker containers                                                                                                                                                                                       |
+| ClamAV         | Antivirus                   | Fake scanner: everything is clean except the [EICAR test file](https://www.eicar.org/download-anti-malware-testfile/). Real one: `docker compose --profile antivirus up -d` and `CLAMAV_HOST=localhost` |
+| Resend inbound | Documents by email          | `POST /api/webhooks/resend-inbound` accepts a development payload with inline base64 attachments (see `modules/documents/inbound/fake.ts`)                                                              |
 
 Later phases add Anthropic (extraction), Stripe and GoCardless, each behind an interface with a fake
 implementation.
@@ -139,6 +149,29 @@ into a generic Spanish message.
 - In `tenantDb` writes use scalar foreign keys (`clientId: id`), not `connect`.
 - Migrations are never edited once applied. Each one ships a hand-written `down.sql` (TD-010).
 - Conventional Commits, one branch per phase, non-trivial decisions as ADRs.
+
+## Documents
+
+```
+browser ──(1) POST /api/uploads ─────────────► app: can() · StoredFile PENDING + Document · S3 multipart
+        ──(2) PUT part (presigned, 5 min) ───► bucket            (retry with backoff, resumable)
+        ──(3) POST …/complete ───────────────► app: real size · UPLOADED · enqueue
+worker  ──(4) sniff bytes → ClamAV → HEIC→JPEG → SHA-256 → exact duplicate? ──► CLEAN | INFECTED
+anyone  ──(5) GET /api/files/:id ────────────► app: can() · audit · 302 to a 5-minute signed URL
+```
+
+- Photos are resized in the browser to 2500 px / JPEG 0.8 before upload. Limits: 20 MB; JPG, PNG, PDF,
+  HEIC, decided from the bytes.
+- Inbound email: each client has an address `<tenant-slug>-<code>@INBOUND_EMAIL_DOMAIN`. Attachments
+  become documents (`source = EMAIL`); an email without attachments becomes a message in the client's
+  general thread.
+- Duplicates: exact (hash, closed automatically) and by supplier NIF + number + date (flagged, the manager
+  confirms).
+- Inbox shortcuts (`/panel/bandeja`): `J`/`K` next/previous · `B` book · `R` reject · `D` duplicate ·
+  `E` edit fields · `Enter` confirm data · `Esc` leave a field. Shortcuts are ignored while typing.
+- Production bucket (R2) needs a CORS rule allowing `PUT` from the portal origins; MinIO allows it by default.
+
+See ADR 0016–0018.
 
 ## Health
 

@@ -46,15 +46,48 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  # Playwright flows arrive in phase 3; the job exists so branch protection can already require it.
   e2e:
     runs-on: ubuntu-latest
     needs: quality
+    env:
+      DATABASE_URL: postgresql://gestoria:gestoria@localhost:5432/gestoria_test
+      DIRECT_URL: postgresql://gestoria:gestoria@localhost:5432/gestoria_test
+      DEMO_MODE: 'true'
+      CI: 'true'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: gestoria
+          POSTGRES_PASSWORD: gestoria
+          POSTGRES_DB: gestoria_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U gestoria" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      # Service containers cannot take a command, and MinIO needs one.
+      - name: Start MinIO and create the bucket
+        run: |
+          docker run -d --name minio --network host -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin quay.io/minio/minio server /data
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break; sleep 1; done
+          docker run --rm --network host --entrypoint /bin/sh quay.io/minio/mc -c "mc alias set local http://localhost:9000 minioadmin minioadmin && mc mb --ignore-existing local/gestoria"
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx prisma migrate deploy
+      - run: npm run build
       - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results

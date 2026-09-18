@@ -6,6 +6,14 @@ import { loadSessionUser, completeLogin } from '@/modules/auth/service';
 import type { SessionUser } from '@/modules/auth/permissions';
 import { getClientFor, listAssignableManagers, listClientsFor } from '@/modules/clients/service';
 import { listTaxProfiles } from '@/modules/clients/tax-profiles/service';
+import { listPermanentDocuments } from '@/modules/documents/permanent';
+import { listSavedViews } from '@/modules/documents/saved-views';
+import {
+  fileAccessUrl,
+  getDocument,
+  listClientDocuments,
+  listInbox,
+} from '@/modules/documents/service';
 import { resetDb } from '@tests/setup/db';
 import { createTenant } from '@tests/setup/factories';
 import { seedTenantWorld } from '@tests/setup/world';
@@ -95,6 +103,38 @@ describe('tenant isolation', () => {
         [],
       );
       expect(await listAssignableManagers(admin)).toEqual([]);
+    });
+
+    it('documents: no inbox row, document, file URL, permanent document or saved view of B', async () => {
+      const file = await prisma.storedFile.findFirstOrThrow({
+        where: { tenantId: b, kind: 'DOCUMENT' },
+      });
+      for (const user of usersOfA) {
+        expect(await listClientDocuments(user, worldB.client.id), user.role).toEqual([]);
+        await expect(getDocument(user, worldB.document.id), user.role).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+        await expect(
+          fileAccessUrl(user, file.id, { inline: true }),
+          user.role,
+        ).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+        await expect(
+          listPermanentDocuments(user, worldB.client.id),
+          user.role,
+        ).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+      }
+      for (const staff of usersOfA.slice(1)) {
+        expect(
+          await listInbox(staff, {
+            statuses: ['RECEIVED', 'IN_REVIEW', 'BOOKED', 'REJECTED', 'DUPLICATE'],
+          }),
+        ).toEqual([]);
+        expect(await listSavedViews(staff)).toEqual([]);
+      }
     });
 
     it('audit: the admin of A sees no entry of B', async () => {

@@ -1,5 +1,7 @@
 # Phase 3 — Document intake and manager inbox
 
+> **Status: completed 2026-09-19** on branch `phase-3`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Clients send documents from the web, the phone camera or by email; every file is scanned, normalised and checked for duplicates by a worker; managers process them from a keyboard-driven inbox.
