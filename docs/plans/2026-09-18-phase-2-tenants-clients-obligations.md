@@ -1,5 +1,7 @@
 # Phase 2 — Tenants, Onboarding, Clients, Tax Profiles, Obligations
 
+> **Status: completed 2026-09-18** on branch `phase-2`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A gestoría can register, walk through onboarding, import and invite its clients, assign tax profiles and get every upcoming tax obligation generated with the right deadline.

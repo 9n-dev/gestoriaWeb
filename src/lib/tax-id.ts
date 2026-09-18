@@ -40,7 +40,7 @@ export function validateTaxId(raw: string): TaxIdResult {
   }
 
   // ponytail: K/L/M NIFs (minors, non-residents) are accepted by format only; their control
-  // algorithm is not applied. Add it if a gestoría reports false positives.
+  // algorithm is not applied (TD-019). Add it if a gestoría reports false positives.
   if (/^[KLM]\d{7}[A-Z]$/.test(id)) return { valid: true, normalized: id, kind: 'NIF' };
 
   if (/^[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]$/.test(id)) {
