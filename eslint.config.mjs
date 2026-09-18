@@ -22,7 +22,7 @@ const config = [
     },
   },
   {
-    files: ['src/env.ts', 'tests/setup/**', 'prisma/**', '*.config.*'],
+    files: ['src/env.ts', 'tests/setup/**', 'prisma/**', 'e2e/**', '*.config.*'],
     rules: { 'no-restricted-properties': 'off' },
   },
   prettier,

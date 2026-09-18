@@ -465,12 +465,7 @@ function RejectDialog({
         className="flex flex-col gap-4"
         onSubmit={(event) => {
           const data = new FormData(event.currentTarget);
-          if (
-            event.nativeEvent instanceof SubmitEvent &&
-            (event.nativeEvent.submitter as HTMLButtonElement | null)?.value === 'reject'
-          ) {
-            onReject(String(data.get('reason')), String(data.get('note') ?? ''));
-          }
+          onReject(String(data.get('reason')), String(data.get('note') ?? ''));
           event.currentTarget.reset();
         }}
       >
@@ -485,14 +480,10 @@ function RejectDialog({
         <Field label="Nota para el cliente (opcional)" name="note" />
         <p className="text-sm text-fg-muted">El cliente recibirá un aviso al momento.</p>
         <div className="flex justify-end gap-2">
-          <button type="submit" value="cancel" formNoValidate className={chip}>
+          <button type="button" className={chip} onClick={() => dialog.current?.close()}>
             Cancelar
           </button>
-          <button
-            type="submit"
-            value="reject"
-            className={`${chip} border-0 bg-primary text-primary-fg`}
-          >
+          <button type="submit" className={`${chip} border-0 bg-primary text-primary-fg`}>
             Rechazar y avisar
           </button>
         </div>
