@@ -1,0 +1,96 @@
+import 'server-only';
+import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListPartsCommand,
+  UploadPartCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { env } from '@/env';
+import { getStorage } from './client';
+
+const SIGNED_URL_SECONDS = 5 * 60;
+const Bucket = env.S3_BUCKET;
+
+/** S3 parts must be at least 5 MiB, except the last one. */
+export const PART_SIZE = 5 * 1024 * 1024;
+
+export async function createMultipartUpload(Key: string, ContentType: string): Promise<string> {
+  const { UploadId } = await getStorage().send(
+    new CreateMultipartUploadCommand({ Bucket, Key, ContentType }),
+  );
+  if (!UploadId) throw new Error(`no UploadId for ${Key}`);
+  return UploadId;
+}
+
+/** The browser PUTs the part straight to the bucket with this URL. */
+export const presignPart = (Key: string, UploadId: string, PartNumber: number): Promise<string> =>
+  getSignedUrl(getStorage(), new UploadPartCommand({ Bucket, Key, UploadId, PartNumber }), {
+    expiresIn: SIGNED_URL_SECONDS,
+  });
+
+export type UploadedPart = { partNumber: number; etag: string; size: number };
+
+/** Source of truth for resuming: what the bucket has actually received. */
+export async function listParts(Key: string, UploadId: string): Promise<UploadedPart[]> {
+  const { Parts = [] } = await getStorage().send(new ListPartsCommand({ Bucket, Key, UploadId }));
+  return Parts.map((part) => ({
+    partNumber: part.PartNumber!,
+    etag: part.ETag!,
+    size: part.Size ?? 0,
+  }));
+}
+
+export async function completeMultipartUpload(
+  Key: string,
+  UploadId: string,
+  parts: UploadedPart[],
+): Promise<void> {
+  await getStorage().send(
+    new CompleteMultipartUploadCommand({
+      Bucket,
+      Key,
+      UploadId,
+      MultipartUpload: {
+        Parts: [...parts]
+          .sort((a, b) => a.partNumber - b.partNumber)
+          .map((part) => ({ PartNumber: part.partNumber, ETag: part.etag })),
+      },
+    }),
+  );
+}
+
+export async function abortMultipartUpload(Key: string, UploadId: string): Promise<void> {
+  await getStorage().send(new AbortMultipartUploadCommand({ Bucket, Key, UploadId }));
+}
+
+export async function objectSize(Key: string): Promise<number> {
+  const { ContentLength } = await getStorage().send(new HeadObjectCommand({ Bucket, Key }));
+  return ContentLength ?? 0;
+}
+
+export async function deleteObject(Key: string): Promise<void> {
+  await getStorage().send(new DeleteObjectCommand({ Bucket, Key }));
+}
+
+/** 5-minute URL. Only `/api/files/[id]` hands these out, after `can()` and the audit entry. */
+export const signedDownloadUrl = (
+  Key: string,
+  fileName: string,
+  contentType: string,
+  inline: boolean,
+): Promise<string> =>
+  getSignedUrl(
+    getStorage(),
+    new GetObjectCommand({
+      Bucket,
+      Key,
+      ResponseContentType: contentType,
+      ResponseContentDisposition: `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+    }),
+    { expiresIn: SIGNED_URL_SECONDS },
+  );
