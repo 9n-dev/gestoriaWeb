@@ -59,6 +59,10 @@ const PLATFORM: Grants = { SUPERADMIN: 'platform' };
 
 // Mirrors docs/foundation.md §3. Changing a permission is a one-line change here plus its test.
 const MATRIX = {
+  // Areas of the app (route-group layouts and post-login redirect)
+  'area.client': CLIENT_ONLY,
+  'area.staff': ANY_STAFF,
+  'area.platform': PLATFORM,
   // Clients
   'client.read': CLIENT_AND_STAFF,
   'client.create': ANY_STAFF, // a manager's new client is auto-assigned to them
