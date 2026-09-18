@@ -12,6 +12,7 @@ import {
   cloneTaxProfile,
   updateTaxProfile,
 } from '@/modules/clients/tax-profiles/service';
+import { updateRejectionReasons } from '@/modules/documents/service';
 import {
   completeOnboarding,
   createSampleData,
@@ -159,4 +160,19 @@ export async function completeOnboardingAction(_: ActionState): Promise<ActionSt
   if (result.error) return result;
   revalidatePath('/', 'layout');
   redirect('/panel');
+}
+
+export async function updateRejectionReasonsAction(
+  _: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    const reasons = (formValues(formData).reasons ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    await updateRejectionReasons(await requireUser(), reasons);
+    revalidatePath('/panel/ajustes/documentos');
+    return { success: 'Motivos guardados.' };
+  });
 }

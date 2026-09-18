@@ -87,7 +87,23 @@ export const documentFieldsSchema = z.object({
   vatAmount: amount,
   total: amount,
 });
-export type DocumentFieldsInput = z.input<typeof documentFieldsSchema>;
+/** Form-shaped input: everything optional arrives as a string, possibly empty. */
+export type DocumentFieldsInput = {
+  type: (typeof DOCUMENT_TYPES)[number];
+  period: { year: number; type: 'MONTH' | 'QUARTER' | 'YEAR'; ordinal: number } | null;
+} & Partial<
+  Record<
+    | 'supplierName'
+    | 'supplierTaxId'
+    | 'invoiceNumber'
+    | 'invoiceDate'
+    | 'taxBase'
+    | 'vatRate'
+    | 'vatAmount'
+    | 'total',
+    string | null
+  >
+>;
 
 export const rejectionSchema = z.object({
   reason: z.string().trim().min(1, 'Elige un motivo.').max(120),

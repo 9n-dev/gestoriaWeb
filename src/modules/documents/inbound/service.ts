@@ -24,6 +24,23 @@ const addressOf = (value: string) => (/<([^>]+)>/.exec(value)?.[1] ?? value).tri
 export const inboundAddressFor = (tenantSlug: string, inboundEmailCode: string) =>
   `${tenantSlug}-${inboundEmailCode}@${env.INBOUND_EMAIL_DOMAIN}`;
 
+/** Personal inbound address of each client the user can see (shown in the portal and the client file). */
+export async function listInboundAddresses(
+  tenant: { id: string; slug: string },
+  clientIds: string[],
+) {
+  const clients = await tenantDb(tenant.id).client.findMany({
+    where: { id: { in: clientIds }, deletedAt: null },
+    select: { id: true, legalName: true, inboundEmailCode: true },
+    orderBy: { legalName: 'asc' },
+  });
+  return clients.map((client) => ({
+    clientId: client.id,
+    legalName: client.legalName,
+    address: inboundAddressFor(tenant.slug, client.inboundEmailCode),
+  }));
+}
+
 /** `<tenant-slug>-<code>@…` → client. Slugs may contain dashes, so every split point is tried. */
 async function findClient(recipients: string[]) {
   const locals = recipients.map((recipient) => addressOf(recipient).split('@')[0] ?? '');
