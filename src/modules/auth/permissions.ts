@@ -39,7 +39,7 @@ export type Resource = {
  * self     → the user's own account
  * platform → not tenant data
  */
-type Scope = 'own' | 'assigned' | 'all' | 'self' | 'platform';
+export type Scope = 'own' | 'assigned' | 'all' | 'self' | 'platform';
 type Grants = Partial<Record<Role, Scope>>;
 
 const STAFF: Grants = { MANAGER: 'assigned', SUPERVISOR: 'all', TENANT_ADMIN: 'all' };
@@ -208,6 +208,12 @@ export function can(user: SessionUser, action: Action, resource?: Resource): boo
   }
 
   return true;
+}
+
+/** How far `action` reaches for this user; repositories turn it into a query filter. */
+export function scopeFor(user: SessionUser, action: Action): Scope | undefined {
+  const grants: Grants = MATRIX[action];
+  return user.status === 'ACTIVE' ? grants[user.role] : undefined;
 }
 
 export function assertCan(user: SessionUser, action: Action, resource?: Resource): void {
