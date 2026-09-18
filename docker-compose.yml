@@ -1,0 +1,46 @@
+# Development services. Host Postgres usually owns 5432, so ours is published on 5433.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gestoria
+      POSTGRES_PASSWORD: gestoria
+      POSTGRES_DB: gestoria
+    ports: ['5433:5432']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro,z
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gestoria']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ['6379:6379']
+
+  minio:
+    image: quay.io/minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ['9000:9000', '9001:9001']
+    volumes: ['miniodata:/data']
+
+  minio-init:
+    image: quay.io/minio/mc
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done;
+      mc mb --ignore-existing local/gestoria"
+
+  # Heavy image (~1 GB RAM while loading signatures). Start it with: docker compose --profile antivirus up -d
+  clamav:
+    image: clamav/clamav:stable
+    profiles: [antivirus]
+    ports: ['3310:3310']
+
+volumes:
+  pgdata:
+  miniodata:
