@@ -60,6 +60,9 @@ export function AppHeader({
               </span>
             )}
           </Link>
+          <Link href="/ayuda" className="rounded-md px-3 py-2 text-sm hover:bg-surface-muted">
+            Ayuda
+          </Link>
           <Link
             href="/cuenta"
             className="rounded-md px-3 py-2 text-sm text-fg-muted hover:bg-surface-muted"

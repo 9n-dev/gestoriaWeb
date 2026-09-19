@@ -1,6 +1,7 @@
 import 'server-only';
 import { unstable_rethrow } from 'next/navigation';
 import { ZodError } from 'zod';
+import { reportError } from '@/lib/report-error';
 import { AppError, toUserMessage } from './errors';
 
 export type ActionState<T = unknown> = { error?: string; success?: string; data?: T };
@@ -16,7 +17,7 @@ export async function runAction<T>(body: () => Promise<ActionState<T>>): Promise
     unstable_rethrow(error);
     if (error instanceof ZodError)
       return { error: error.issues[0]?.message ?? toUserMessage(error) };
-    if (!(error instanceof AppError)) console.error('[action]', error);
+    if (!(error instanceof AppError)) reportError(error, { where: 'action' });
     return { error: toUserMessage(error) };
   }
 }

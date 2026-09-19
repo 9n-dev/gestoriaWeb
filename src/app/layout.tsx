@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { getCurrentTenant } from '@/modules/tenants/current';
 import { readableForeground } from '@/modules/branding/contrast';
 import { parseBranding } from '@/modules/tenants/schema';
+import { env } from '@/env';
+import { RegisterServiceWorker } from '@/components/pwa/register';
 import './globals.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -10,13 +12,22 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: tenant ? `${tenant.name} · Portal de clientes` : 'Portal de clientes',
     description: 'Portal de clientes de tu gestoría',
-    icons: parseBranding(tenant?.branding).faviconFileId
-      ? { icon: '/api/branding/favicon' }
-      : undefined,
+    icons: {
+      ...(parseBranding(tenant?.branding).faviconFileId ? { icon: '/api/branding/favicon' } : {}),
+      apple: '/api/branding/icon/180',
+    },
+    appleWebApp: { capable: true, title: tenant?.name ?? 'Portal de clientes' },
   };
 }
 
-export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
+export async function generateViewport(): Promise<Viewport> {
+  const tenant = await getCurrentTenant();
+  return {
+    width: 'device-width',
+    initialScale: 1,
+    themeColor: parseBranding(tenant?.branding).primaryColor ?? '#1d4ed8',
+  };
+}
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const branding = parseBranding((await getCurrentTenant())?.branding);
@@ -33,7 +44,18 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="es" style={colors}>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased">
+        {env.DEMO_MODE && (
+          <p
+            role="note"
+            className="bg-amber-300 px-4 py-1.5 text-center text-sm font-medium text-black"
+          >
+            Entorno de demostración: los datos se reinician cada noche.
+          </p>
+        )}
+        {children}
+        <RegisterServiceWorker />
+      </body>
     </html>
   );
 }

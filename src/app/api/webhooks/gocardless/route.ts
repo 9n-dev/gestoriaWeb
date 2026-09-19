@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { reportError } from '@/lib/report-error';
 import { AppError } from '@/lib/errors';
 import { rateLimitByIp } from '@/lib/rate-limit';
 import { getPaymentProvider, handlePaymentWebhook } from '@/modules/billing/payments';
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof AppError)
       return NextResponse.json({ error: error.userMessage }, { status: error.status });
-    console.error('[webhook:gocardless]', error);
+    reportError(error, { where: 'webhook:gocardless' });
     return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
   }
 }

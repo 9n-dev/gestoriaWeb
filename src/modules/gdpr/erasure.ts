@@ -303,15 +303,11 @@ export function tenantTablesInDeletionOrder(): string[] {
 }
 
 /**
- * Physical deletion of a cancelled tenant: bucket first (an orphan row is harmless, an orphan file
- * is a leak), then every row, the audit log included, and the tenant itself.
+ * Removes a tenant from bucket and database: bucket first (an orphan row is harmless, an orphan
+ * file is a leak), then every row, the audit log included, and the tenant itself.
+ * No checks here: callers are `purgeTenant` (cancelled + grace over) and the demo reset.
  */
-export async function purgeTenant(tenantId: string, now: Date = new Date()): Promise<void> {
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-  if (!tenant || tenant.status !== 'CANCELLED' || !tenant.purgeAfter || tenant.purgeAfter > now) {
-    throw new AppError('CONFLICT', 'Esa gestoría no está pendiente de borrado.');
-  }
-
+export async function deleteTenantData(tenantId: string): Promise<void> {
   await deletePrefix(`${tenantId}/`);
   await prisma.$transaction(async (tx) => {
     // The append-only trigger of audit_logs lets DELETE through only under this flag (ADR 0008).
@@ -324,6 +320,15 @@ export async function purgeTenant(tenantId: string, now: Date = new Date()): Pro
     });
     await tx.tenant.delete({ where: { id: tenantId } });
   });
+}
+
+/** Physical deletion of a cancelled tenant once its 30 days of grace are over (§4). */
+export async function purgeTenant(tenantId: string, now: Date = new Date()): Promise<void> {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (!tenant || tenant.status !== 'CANCELLED' || !tenant.purgeAfter || tenant.purgeAfter > now) {
+    throw new AppError('CONFLICT', 'Esa gestoría no está pendiente de borrado.');
+  }
+  await deleteTenantData(tenantId);
   // The only trace left: that a tenant with this id existed and was purged.
   await recordAudit({
     tenantId: null,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { reportError } from '@/lib/report-error';
 import { AppError } from '@/lib/errors';
 import { rateLimitByIp } from '@/lib/rate-limit';
 import { getInboundProvider } from '@/modules/documents/inbound/provider';
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     if (error instanceof ZodError || error instanceof SyntaxError) {
       return NextResponse.json({ error: 'Payload no válido.' }, { status: 400 });
     }
-    console.error('[webhook:resend-inbound]', error);
+    reportError(error, { where: 'webhook:resend-inbound' });
     return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
   }
 }

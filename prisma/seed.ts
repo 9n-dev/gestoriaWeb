@@ -921,9 +921,15 @@ async function main() {
   );
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+/** The nightly demo reset (worker) reuses the very same seed. */
+export { main as seedDemo };
+
+// Run only as a script (`npm run db:seed`), not when imported.
+if (process.argv[1]?.endsWith('seed.ts')) {
+  main()
+    .catch((error) => {
+      console.error(error);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}

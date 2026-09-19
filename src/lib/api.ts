@@ -1,6 +1,7 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { reportError } from '@/lib/report-error';
 import { AppError, toUserMessage } from '@/lib/errors';
 import type { AuthenticatedUser } from '@/modules/auth/service';
 import { getSessionUser } from '@/modules/auth/session';
@@ -31,7 +32,7 @@ export function apiRoute<Context>(
           { status: 422 },
         );
       }
-      console.error('[api]', error);
+      reportError(error, { where: 'api' });
       return NextResponse.json({ error: toUserMessage(error) }, { status: 500 });
     }
   };
