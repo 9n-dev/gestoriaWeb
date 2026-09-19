@@ -40,6 +40,7 @@ import {
   InviteSection,
   ManagerSection,
   NotesSection,
+  RemoveAccessButton,
   ResendButton,
   TaxProfileSection,
 } from './sections';
@@ -347,6 +348,9 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   <span className="text-fg-muted">{person.email}</span>
                   <span>{USER_STATUS[person.status]}</span>
                   {person.status === 'INVITED' && <ResendButton userId={person.id} />}
+                  {can(user, 'client.removeUser', resource) && (
+                    <RemoveAccessButton clientId={id} userId={person.id} />
+                  )}
                 </li>
               ))}
             </ul>

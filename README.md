@@ -231,7 +231,9 @@ Verifactu) and rendered to PDF with the legally required content. Cancelling iss
 pay by card (Stripe Checkout) or SEPA debit (GoCardless) through `PaymentProvider`; webhooks
 (`/api/webhooks/stripe`, `/api/webhooks/gocardless`) verify the signature and process each event once. Unpaid
 invoices: overdue → reminders at 3/10/20 days → `DELINQUENT` at 30 (uploads allowed, downloads blocked except
-their invoices). See ADR 0027.
+their invoices). Payment term, reminder days, the delinquency threshold and the invoice series are edited in
+Ajustes → Facturación (a new series starts its own numbering at 1; `R` is reserved for rectifying invoices).
+See ADR 0027.
 
 ## AI extraction and accounting export
 
@@ -250,6 +252,11 @@ separator. See ADR 0025–0026.
   A tenant admin resets a colleague's 2FA in Ajustes → Equipo. **Enforcement is off when `DEMO_MODE=true`**
   so the demo users work: never run real tenants in demo mode. Secrets are encrypted with a key derived
   from `AUTH_SECRET` — rotating it forces everybody to enrol again.
+- **Team** (Ajustes → Equipo): change a colleague's role, disable them ("dar de baja": their clients must be
+  handed to somebody else first, sessions are closed, the row stays for the audit trail) and reactivate
+  them. Admins cannot change themselves, so a tenant always keeps an active admin. On a client's page,
+  "Retirar acceso" unlinks a person; somebody left without clients is disabled until invited again.
+  See ADR 0033.
 - **Sessions**: listed and revocable in "Tu cuenta". **Rate limiting** in Redis (fails open) on login,
   2FA, magic links, sign-up, upload initiation and webhooks. **Headers**: `src/middleware.ts` sets a
   nonce-based CSP, HSTS and friends; the bucket (`S3_ENDPOINT`) is the only foreign origin allowed. The

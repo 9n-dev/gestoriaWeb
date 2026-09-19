@@ -6,6 +6,7 @@ import { formValues, runAction, type ActionState } from '@/lib/action';
 import { AppError } from '@/lib/errors';
 import { inviteClientUser, resendInvitation } from '@/modules/auth/invitations';
 import { requireUser } from '@/modules/auth/session';
+import { removeClientUser } from '@/modules/auth/team';
 import { importClients } from '@/modules/clients/import';
 import { deletePermanentDocument } from '@/modules/documents/permanent';
 import {
@@ -119,6 +120,18 @@ export async function resendInvitationAction(userId: string, _: ActionState): Pr
   return runAction(async () => {
     await resendInvitation(await requireUser(), userId);
     return { success: 'Invitación reenviada.' };
+  });
+}
+
+export async function removeClientUserAction(
+  clientId: string,
+  userId: string,
+  _: ActionState,
+): Promise<ActionState> {
+  return runAction(async () => {
+    await removeClientUser(await requireUser(), clientId, userId);
+    revalidatePath(`/panel/clientes/${clientId}`);
+    return { success: 'Acceso retirado.' };
   });
 }
 

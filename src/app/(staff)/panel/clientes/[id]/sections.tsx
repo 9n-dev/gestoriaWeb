@@ -9,6 +9,7 @@ import {
   deleteClientAction,
   deletePermanentDocumentAction,
   inviteClientUserAction,
+  removeClientUserAction,
   resendInvitationAction,
   updateNotesAction,
 } from '../actions';
@@ -115,6 +116,19 @@ export function ResendButton({ userId }: { userId: string }) {
     >
       <SubmitButton variant="ghost" pendingLabel="Enviando…">
         Reenviar invitación
+      </SubmitButton>
+    </ActionForm>
+  );
+}
+
+export function RemoveAccessButton({ clientId, userId }: { clientId: string; userId: string }) {
+  return (
+    <ActionForm
+      action={removeClientUserAction.bind(null, clientId, userId)}
+      className="flex items-center gap-3"
+    >
+      <SubmitButton variant="ghost" pendingLabel="Retirando…">
+        Retirar acceso
       </SubmitButton>
     </ActionForm>
   );
