@@ -5,14 +5,13 @@ import { sendEmail } from '@/lib/email';
 import { AppError } from '@/lib/errors';
 import { enqueue, QUEUES } from '@/lib/queue';
 import { putObject } from '@/lib/storage/objects';
-import { env } from '@/env';
 import { recordAudit } from '@/modules/audit/service';
 import { brandingWarnings, type ContrastWarning } from '@/modules/branding/contrast';
 import { assertCan, requireTenantId, type SessionUser } from '@/modules/auth/permissions';
 import { issueLoginToken } from '@/modules/auth/service';
 import { strictReminderSettingsSchema } from '@/modules/obligations/reminders/templates';
 import { syncObligationsForClient } from '@/modules/obligations/service';
-import { tenantBaseUrl } from './resolve';
+import { platformBaseUrl, tenantBaseUrl } from './resolve';
 import {
   brandingSchema,
   parseBranding,
@@ -27,9 +26,6 @@ const VERIFICATION_MS = 48 * 3_600_000;
 const INVITATION_MS = 7 * 24 * 3_600_000;
 const FIRST_LOGIN_MS = 15 * 60_000;
 const MAX_LOGO_BYTES = 1024 * 1024;
-
-const platformBaseUrl = () =>
-  `${env.APP_DOMAIN.startsWith('localhost') ? 'http' : 'https'}://${env.APP_DOMAIN}`;
 
 async function provisionTenant(
   input: TenantRegistration,

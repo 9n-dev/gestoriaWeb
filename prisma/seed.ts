@@ -15,6 +15,7 @@ import {
 import { ensureChecklist, refreshChecklist } from '../src/modules/checklists/sync';
 import { signDelivery } from '../src/modules/deliveries/service';
 import { DEFAULT_REJECTION_REASONS } from '../src/modules/documents/schema';
+import { acceptAgreements } from '../src/modules/legal/dpa';
 import { syncObligationsForClient } from '../src/modules/obligations/service';
 import { invoicePdf, invoiceTotals, makePdf, type DemoInvoice } from './seed-files';
 import { seedSystemData } from './system-data';
@@ -895,6 +896,25 @@ async function main() {
   await upsertUser(otra.id, 'admin@demo.es', 'Admin de Otra', 'TENANT_ADMIN', passwordHash);
 
   await upsertUser(null, 'superadmin@demo.es', 'Soporte Plataforma', 'SUPERADMIN', passwordHash);
+
+  // Demo people have already accepted their data processing agreements (idempotent per version).
+  const signers = await prisma.user.findMany({
+    where: { tenantId: { in: [perez.id, otra.id] }, role: { in: ['TENANT_ADMIN', 'CLIENT_USER'] } },
+    include: { clientLinks: true },
+  });
+  for (const signer of signers) {
+    await acceptAgreements(
+      {
+        id: signer.id,
+        tenantId: signer.tenantId,
+        role: signer.role,
+        status: 'ACTIVE',
+        clientIds: signer.clientLinks.map((link) => link.clientId),
+        supportTenantIds: [],
+      },
+      { ip: null, userAgent: 'seed' },
+    );
+  }
 
   console.info(
     `Seed done: ${DEMO_CLIENTS.length} clients and ${DEMO_DOCUMENTS.length} documents in "perez", tenant "otra", superadmin. Password of every demo user: ${DEMO_PASSWORD}`,

@@ -1,15 +1,15 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { env } from '@/env';
-import { getSessionUser, homePathFor } from '@/modules/auth/session';
+import { getPendingUser, homePathFor } from '@/modules/auth/session';
 import { getCurrentTenant } from '@/modules/tenants/current';
 import { LoginForm } from './login-form';
 
 const DEMO_USERS = ['admin@demo.es', 'gestor@demo.es', 'cliente@demo.es'];
 
 export default async function LoginPage() {
-  const user = await getSessionUser();
-  if (user) redirect(homePathFor(user));
+  const user = await getPendingUser();
+  if (user) redirect(user.twoFactor === 'ok' ? homePathFor(user) : '/acceso/2fa');
   const tenant = await getCurrentTenant();
 
   return (

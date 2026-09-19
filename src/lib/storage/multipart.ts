@@ -4,8 +4,10 @@ import {
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   ListPartsCommand,
   UploadPartCommand,
 } from '@aws-sdk/client-s3';
@@ -75,6 +77,23 @@ export async function objectSize(Key: string): Promise<number> {
 
 export async function deleteObject(Key: string): Promise<void> {
   await getStorage().send(new DeleteObjectCommand({ Bucket, Key }));
+}
+
+/** Deletes every object under a prefix (tenant purge). Returns how many went. */
+export async function deletePrefix(Prefix: string): Promise<number> {
+  let deleted = 0;
+  for (;;) {
+    // Always the first page: what was listed before is gone by now.
+    const { Contents = [] } = await getStorage().send(new ListObjectsV2Command({ Bucket, Prefix }));
+    if (Contents.length === 0) return deleted;
+    await getStorage().send(
+      new DeleteObjectsCommand({
+        Bucket,
+        Delete: { Objects: Contents.map(({ Key }) => ({ Key })), Quiet: true },
+      }),
+    );
+    deleted += Contents.length;
+  }
 }
 
 /** 5-minute URL. Only `/api/files/[id]` hands these out, after `can()` and the audit entry. */

@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { AppError } from '@/lib/errors';
+import { rateLimitByIp } from '@/lib/rate-limit';
 import { getInboundProvider } from '@/modules/documents/inbound/provider';
 import { receiveInboundEmail } from '@/modules/documents/inbound/service';
 
 /** Inbound email webhook (§6.3). Authenticity is the provider's job; idempotency the service's. */
 export async function POST(request: Request) {
   try {
+    await rateLimitByIp('webhook');
     const email = await getInboundProvider().parse(await request.text(), request.headers);
     const result = await receiveInboundEmail('RESEND', email);
     // 200 also for unknown addresses: the provider must not retry them.

@@ -6,11 +6,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 
 | Id | Owner phase | Item |
 |---|---|---|
-| TD-001 | 9 | **2FA not enforced yet.** Staff roles log in with password only. Schema fields exist (`totpSecret`, `recoveryCodeHashes`); enrolment, challenge and enforcement arrive with the security phase. Do not onboard real tenants before. |
-| TD-002 | 9 | **No rate limiting** on `/acceso`, magic-link requests or `/api/auth/*`. Account lockout (5 attempts / 15 min) is the only brake today. |
-| TD-003 | 9 | **No security headers** (CSP, HSTS…). `src/middleware.ts` does not exist yet; there is no edge auth gate either — every layout and service calls `requireUser()`/`can()`. |
-| TD-007 | 9 | **Session list / revoke UI missing.** `revokeSession` and `revokeAllSessions` exist and are tested; nothing calls them except sign-out. |
-| TD-008 | 9 | **Support mode has no UI and no cross-host session.** `can()` and `loadSessionUser` already honour `SupportAccessGrant`; granting, and how a superadmin enters a tenant host, are pending. |
 | TD-009 | — | **`tenantDb` does not rewrite nested writes or `include` filters** (ADR 0005). Rule: ids coming from the user are first loaded through `tenantDb`. Optional hardening: Postgres RLS. |
 | TD-010 | — | **Down migrations are manual.** Prisma has no native rollback: each migration folder carries a hand-written `down.sql`. CI does not verify them. |
 | TD-011 | 10 | **Sentry not wired.** `SENTRY_DSN` is validated in `env.ts` but unused; errors go to stdout. |
@@ -30,7 +25,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-035 | — | **E2E runs against the development database** locally (it re-seeds and leaves its uploads and test tenants behind). CI uses a fresh database. |
 | TD-037 | — | **The traffic-light overview is quarterly.** Clients with monthly VAT keep monthly checklists and are not listed in the quarter view. |
 | TD-038 | 10 | **Dashboard numbers are computed on every visit** (overview of all clients in memory; average over the last 2 000 processed documents). Cache or pre-aggregate if a tenant grows large. |
-| TD-039 | 9 | **Soft-deleted files keep their objects in the bucket** (replaced receipts, deleted permanent documents). Physical removal belongs to the retention policy. |
 | TD-040 | 10 | **No demo reset job yet** (04:00 re-seed when `DEMO_MODE`). |
 | TD-041 | — | **Failed-jobs panel has no pagination or bulk retry**: first 100 per queue. |
 | TD-042 | 9 | **Reply-by-email trusts the From address plus the thread token** (ADR 0022). Enforce DMARC on the inbound domain when it is connected. |
@@ -51,6 +45,15 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-058 | — | **Billing settings have no UI** (`Tenant.settings.billing`: payment days, dunning days, delinquency threshold, series code). Defaults: 15, 3/10/20, 30, `A`. |
 | TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
 | TD-060 | — | **The new-invoice form takes three lines and one VAT rate**; the service accepts up to 50 lines with their own rates. |
+| TD-061 | — | **A TOTP code can be replayed inside its 30-second window**: the last accepted step is not stored. Needs a `totpLastStep` column; the attacker would already need the password and a live code. |
+| TD-062 | 10 | **2FA enforcement is off when `DEMO_MODE=true`** so the published demo users work. The feature itself stays on. Never run a real tenant with demo mode. |
+| TD-063 | — | **Data exports are built in memory** (`buildExport`). Fine for a small gestoría; a tenant with many GB needs a streamed ZIP into a multipart upload. |
+| TD-064 | — | **The DPA gate lives in the route-group layouts** (`requireArea`), not in server actions or API routes, and the text is a template that needs the platform owner's legal review. No PDF copy is emailed after accepting. |
+| TD-065 | — | **Rate limiting is a fixed window keyed by `X-Forwarded-For`**: a 2x burst across the boundary is possible, and it trusts the proxy to overwrite that header (see TD-047). |
+| TD-066 | — | **Support mode is one read-only overview page** (figures and client list). Browsing the tenant's panel as superadmin would need a cross-host session; not built. |
+| TD-067 | — | **CSP keeps `style-src 'unsafe-inline'`**: tenant colours are CSS variables in a style attribute and Next inlines critical CSS. Scripts are nonce-only. |
+| TD-068 | — | **A cancelled tenant can only be reactivated by hand** (set `status='ACTIVE'`, clear `purgeAfter`): `setTenantStatus` handles ACTIVE/SUSPENDED only. |
+| TD-069 | — | **Retention deletes without warning**: no "these documents will be deleted next month" notice to the tenant admin. |
 
 ## Closed
 
@@ -69,3 +72,9 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-005 / TD-024 | phase 6 | Static branding without contrast validation: favicon, sender name, contrast warnings, automatic button text colour. |
 | TD-036 / TD-045 | phase 6 | Reminder wording only editable in the database; plain-text emails: editor with preview and branded HTML for every email. |
 | TD-028 | phase 7 | Manual extraction: AI extraction with confidence, period suggestion and duplicate check. |
+| TD-001 | phase 9 | 2FA: TOTP enrolment with QR, challenge after the password, single-use recovery codes, lockout shared with passwords, admin reset; mandatory for staff and superadmins. |
+| TD-002 | phase 9 | Rate limiting (Redis, fail-open) on login, 2FA, magic links, sign-up, upload initiation, export links and webhooks. |
+| TD-003 | phase 9 | `src/middleware.ts`: nonce-based CSP, HSTS, nosniff, frame-ancestors, referrer and permissions policies; verified by an E2E test with zero violations. |
+| TD-007 | phase 9 | Session list with revoke one / revoke the others in "Tu cuenta". |
+| TD-008 | phase 9 | Support mode: grant with reason and expiry, early revoke, read-only overview for the superadmin, all audited (reduced scope: TD-066). |
+| TD-039 | phase 9 | Daily sweep physically deletes soft-deleted documents and permanent documents after 30 days, files nothing references, and documents past the retention period. |

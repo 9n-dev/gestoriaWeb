@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { formValues, runAction, type ActionState } from '@/lib/action';
 import { inviteClientsInBulk, inviteStaff } from '@/modules/auth/invitations';
 import { requireUser } from '@/modules/auth/session';
+import { resetTwoFactor } from '@/modules/auth/two-factor/service';
 import { listClientsFor } from '@/modules/clients/service';
 import { DOCUMENT_TYPE_LABELS } from '@/modules/clients/tax-profiles/labels';
 import {
@@ -54,6 +55,18 @@ export async function updateBrandingAction(
     });
     revalidatePath('/', 'layout');
     return { success: 'Marca guardada.', data: warnings.map((warning) => warning.message) };
+  });
+}
+
+export async function resetTwoFactorAction(
+  _: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    await resetTwoFactor(await requireUser(), formValues(formData).userId ?? '');
+    return {
+      success: 'Hecho. Se le han cerrado las sesiones y la configurará de nuevo al entrar.',
+    };
   });
 }
 

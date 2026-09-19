@@ -374,17 +374,19 @@ model User {
 // Credentials provider); the JWT carries this id and is checked on every request,
 // which gives us revocation and the 12h / 30d expiry per role.
 model UserSession {
-  id         String    @id @default(cuid())
-  tenantId   String?
-  tenant     Tenant?   @relation(fields: [tenantId], references: [id])
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ip         String?
-  userAgent  String?
-  createdAt  DateTime  @default(now())
-  lastSeenAt DateTime  @default(now())
-  expiresAt  DateTime
-  revokedAt  DateTime?
+  id                  String    @id @default(cuid())
+  tenantId            String?
+  tenant              Tenant?   @relation(fields: [tenantId], references: [id])
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip                  String?
+  userAgent           String?
+  createdAt           DateTime  @default(now())
+  lastSeenAt          DateTime  @default(now())
+  // Second factor passed in this session. Null = password only (staff cannot go past the challenge).
+  twoFactorVerifiedAt DateTime?
+  expiresAt           DateTime
+  revokedAt           DateTime?
 
   @@index([userId])
   @@index([tenantId])
@@ -1184,20 +1186,22 @@ model AiUsageLog {
 
 // Client data export (right of access) when clientId is set; full tenant export otherwise.
 model DataExport {
-  id            String           @id @default(cuid())
-  tenantId      String
-  tenant        Tenant           @relation(fields: [tenantId], references: [id])
-  clientId      String?
-  client        Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  requestedById String?
-  requestedBy   User?            @relation(fields: [requestedById], references: [id])
-  status        DataExportStatus @default(PENDING)
-  storageKey    String?
-  sizeBytes     BigInt?
-  error         String?
-  createdAt     DateTime         @default(now())
-  completedAt   DateTime?
-  expiresAt     DateTime?
+  id                String           @id @default(cuid())
+  tenantId          String
+  tenant            Tenant           @relation(fields: [tenantId], references: [id])
+  clientId          String?
+  client            Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  requestedById     String?
+  requestedBy       User?            @relation(fields: [requestedById], references: [id])
+  status            DataExportStatus @default(PENDING)
+  storageKey        String?
+  // SHA-256 of the emailed download token: the only door left once a cancelled tenant cannot log in.
+  downloadTokenHash String?          @unique
+  sizeBytes         BigInt?
+  error             String?
+  createdAt         DateTime         @default(now())
+  completedAt       DateTime?
+  expiresAt         DateTime?
 
   @@index([tenantId, createdAt])
   @@index([clientId])
