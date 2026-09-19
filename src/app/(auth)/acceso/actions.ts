@@ -11,6 +11,7 @@ import {
 } from '@/modules/auth/schema';
 import { requestMagicLink } from '@/modules/auth/service';
 import { getCurrentTenant } from '@/modules/tenants/current';
+import { requestHost } from '@/modules/tenants/resolve';
 
 export type LoginState = { error?: string; info?: string };
 
@@ -43,7 +44,7 @@ export async function magicLinkRequestAction(
   if (!input.success) return { error: input.error.issues[0]?.message };
 
   const h = await headers();
-  const host = h.get('host') ?? '';
+  const host = requestHost(h);
   const protocol = h.get('x-forwarded-proto') ?? (host.includes('localhost') ? 'http' : 'https');
   await requestMagicLink(await getCurrentTenant(), input.data.email, `${protocol}://${host}`);
 

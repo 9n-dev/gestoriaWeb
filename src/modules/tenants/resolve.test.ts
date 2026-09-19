@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetDb } from '@tests/setup/db';
 import { createTenant } from '@tests/setup/factories';
-import { parseHost, resolveTenant } from './resolve';
+import { parseHost, requestHost, resolveTenant } from './resolve';
 
 describe('parseHost', () => {
   it('recognises the platform host', () => {
@@ -26,6 +26,21 @@ describe('parseHost', () => {
       kind: 'custom',
       domain: 'clientes.gestoriaperez.es',
     });
+  });
+});
+
+describe('requestHost', () => {
+  it('prefers the forwarded host (proxies, and Next.js rendering a server-action redirect)', () => {
+    expect(
+      requestHost(new Headers({ host: 'localhost:3000', 'x-forwarded-host': 'perez.app.test' })),
+    ).toBe('perez.app.test');
+    expect(
+      requestHost(
+        new Headers({ host: 'localhost:3000', 'x-forwarded-host': 'a.app.test, proxy.internal' }),
+      ),
+    ).toBe('a.app.test');
+    expect(requestHost(new Headers({ host: 'perez.app.test' }))).toBe('perez.app.test');
+    expect(requestHost(new Headers())).toBe('');
   });
 });
 
