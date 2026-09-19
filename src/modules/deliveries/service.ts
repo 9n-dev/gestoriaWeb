@@ -8,6 +8,8 @@ import { assertCan, requireTenantId, scopeFor, type SessionUser } from '@/module
 import { loadForStaff, resourceOf } from '@/modules/clients/service';
 import { notifyClientUsers, notifyUsers } from '@/modules/messaging/notifications';
 import { deliveryResource, deliverySelect, readableDelivery, type DeliveryRow } from './access';
+import { loadPdfLogo } from '@/modules/branding/logo';
+import { parseBranding } from '@/modules/tenants/schema';
 import { signatureCertificate } from './certificate';
 
 /** Deliveries of a client. Client users only get the ones already visible to them. */
@@ -105,11 +107,16 @@ export async function signDelivery(
   if (count === 0) throw new AppError('CONFLICT', 'Este documento ya está firmado.');
 
   const [tenant, signer] = await Promise.all([
-    prisma.tenant.findUniqueOrThrow({ where: { id: delivery.tenantId }, select: { name: true } }),
+    prisma.tenant.findUniqueOrThrow({
+      where: { id: delivery.tenantId },
+      select: { name: true, branding: true },
+    }),
     db.user.findFirst({ where: { id: user.id }, select: { name: true, email: true } }),
   ]);
   const pdf = signatureCertificate({
     tenantName: tenant.name,
+    brandColor: parseBranding(tenant.branding).primaryColor,
+    logo: await loadPdfLogo(delivery.tenantId, tenant.branding),
     clientName: delivery.client.legalName,
     clientTaxId: delivery.client.taxId,
     deliveryTitle: delivery.title,

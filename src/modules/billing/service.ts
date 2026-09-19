@@ -4,9 +4,9 @@ import { z } from 'zod';
 import { prisma, tenantDb } from '@/lib/db';
 import { addDays, isoDate, toDateOnly, todayInMadrid, type IsoDate } from '@/lib/dates';
 import { AppError } from '@/lib/errors';
-import { reportError } from '@/lib/report-error';
-import { getObjectBytes, putObject } from '@/lib/storage/objects';
+import { putObject } from '@/lib/storage/objects';
 import { recordAudit } from '@/modules/audit/service';
+import { loadPdfLogo } from '@/modules/branding/logo';
 import {
   assertCan,
   can,
@@ -236,24 +236,6 @@ const address = (p: {
     .join(', ');
 
 /**
- * The tenant's logo for the invoice header, only if the antivirus has cleared it. An invoice is
- * never held back by its decoration: any problem here means a header without logo.
- */
-async function loadInvoiceLogo(tenantId: string, branding: unknown): Promise<Uint8Array | null> {
-  const { logoFileId } = parseBranding(branding);
-  if (!logoFileId) return null;
-  try {
-    const file = await tenantDb(tenantId).storedFile.findFirst({
-      where: { id: logoFileId, kind: 'BRANDING', status: 'CLEAN', deletedAt: null },
-    });
-    return file ? await getObjectBytes(file.storageKey) : null;
-  } catch (error) {
-    reportError(error, { where: 'invoice-logo', tags: { tenantId } });
-    return null;
-  }
-}
-
-/**
  * Issues a draft: number, dates, frozen legal data, compliance seal and PDF.
  *
  * Numbering (§6.11) is gap-free and duplicate-free because the series row is locked with
@@ -277,7 +259,7 @@ export async function issueInvoiceById(
   }
   const settings = parseBillingSettings(tenant.settings);
   // Read before the transaction: the series row should not stay locked while the bucket answers.
-  const logo = await loadInvoiceLogo(tenantId, tenant.branding);
+  const logo = await loadPdfLogo(tenantId, tenant.branding);
 
   const issued = await prisma.$transaction(
     async (tx) => {

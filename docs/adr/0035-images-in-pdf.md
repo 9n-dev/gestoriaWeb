@@ -18,8 +18,12 @@ Option 3, in `lib/pdf-image.ts` (~150 lines over `node:zlib`). JPEG: read the si
 
 Rules around it: only a logo the antivirus has marked `CLEAN` is used; it is read **before** the numbering transaction so the series lock is never held while the bucket answers; any failure (missing file, bucket down, undecodable image) yields an invoice without logo and an error report, never a failed issue. The legal name stays as text under the logo: the law asks for it and a logo is not text.
 
+## Addendum (same day): normalise at the source
+
+Rather than teaching the server more formats, the branding form now re-encodes in the browser — which can decode anything it can display — whatever `pdfImageFrom` would refuse: WebP, interlaced PNG, CMYK JPEG, and images over 4 megapixels (scaled down). The result is a plain PNG with its transparency, swapped into the file input before the form is sent (`components/branding/normalise-logo.ts`). Fine logos go up untouched. The server keeps accepting WebP and keeps its fallback, so nothing depends on the browser behaving. The decoder also gained colour-key transparency (`tRNS` on greyscale and RGB), and the signature certificate got the same treatment as the invoice: logo, brand colour and a laid-out page.
+
 ## Consequences
 
-- WebP logos, interlaced PNGs, CMYK JPEGs and images over 4 megapixels do not reach the PDF (TD-077). The branding form tells the admin to use PNG or JPG.
+- Logos stored before the addendum, or uploaded with JavaScript off, in a format the PDFs cannot embed keep falling back to the name until they are uploaded again (TD-078).
 - Decoded pixels live in memory while the PDF is built (at most 16 MB for the largest accepted image).
 - Invoices already issued keep the PDF they were issued with.

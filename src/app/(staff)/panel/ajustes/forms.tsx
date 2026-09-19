@@ -1,5 +1,6 @@
 'use client';
 
+import { normaliseLogoInput } from '@/components/branding/normalise-logo';
 import type { Tenant } from '@prisma/client';
 import { Field } from '@/components/ui/field';
 import { ActionForm, SelectField, SubmitButton } from '@/components/ui/form';
@@ -86,10 +87,11 @@ export function BrandingForm({
             accept="image/png,image/jpeg,image/webp"
             aria-describedby="logo-hint"
             className="text-sm"
+            onChange={(event) => void normaliseLogoInput(event.currentTarget)}
           />
           <p id="logo-hint" className="text-sm text-fg-muted">
-            También encabeza tus facturas si es PNG o JPG (un logo en WebP se ve en el portal, pero
-            no en los PDF).
+            También encabeza tus facturas y certificados de firma. Si hace falta, lo convertimos a
+            PNG al elegirlo.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">

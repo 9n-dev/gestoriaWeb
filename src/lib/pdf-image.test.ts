@@ -131,6 +131,36 @@ describe('pdf images', () => {
     expect(pixels(greyAlpha.alpha!)).toEqual([7]);
   });
 
+  it('honours the single transparent colour of PNGs without an alpha channel', () => {
+    const rgbKey = pdfImageFrom(
+      png({
+        width: 2,
+        height: 1,
+        depth: 8,
+        type: 2,
+        rows: [[255, 255, 255, 10, 20, 30]],
+        bpp: 3,
+        extra: [chunk('tRNS', Buffer.from([0, 255, 0, 255, 0, 255]))], // white is the key
+      }),
+    )!;
+    expect(pixels(rgbKey.alpha!)).toEqual([0, 255]);
+
+    // At 16 bits the key must match both bytes: 0x8012 is transparent, 0x8013 is not.
+    const greyKey = pdfImageFrom(
+      png({
+        width: 2,
+        height: 1,
+        depth: 16,
+        type: 0,
+        rows: [[0x80, 0x12, 0x80, 0x13]],
+        bpp: 2,
+        extra: [chunk('tRNS', Buffer.from([0x80, 0x12]))],
+      }),
+    )!;
+    expect(pixels(greyKey.data)).toEqual([0x80, 0x80, 0x80, 0x80, 0x80, 0x80]);
+    expect(pixels(greyKey.alpha!)).toEqual([0, 255]);
+  });
+
   it('reads the size of a JPEG and passes its bytes through untouched', () => {
     const jpeg = new Uint8Array([
       0xff,
