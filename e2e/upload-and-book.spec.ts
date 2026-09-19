@@ -20,6 +20,8 @@ test('client uploads a document and the manager books it with the keyboard', asy
   await logout(page);
 
   await login(page, 'gestor@demo.es');
+  // Staff land on the dashboard; the inbox is one click away.
+  await page.getByRole('link', { name: 'Bandeja' }).click();
   await expect(page).toHaveURL(/panel\/bandeja/);
   await page.getByRole('row').filter({ hasText: fileName }).click();
   await expect(page.getByRole('img', { name: `Vista previa de ${fileName}` })).toBeVisible();
@@ -52,6 +54,7 @@ test('manager rejects a document from the keyboard and the client sees why', asy
   await logout(page);
 
   await login(page, 'gestor@demo.es');
+  await page.goto('/panel/bandeja');
   const row = page.getByRole('row').filter({ hasText: fileName });
   await expect(async () => {
     await page.reload();

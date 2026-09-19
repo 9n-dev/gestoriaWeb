@@ -1,5 +1,7 @@
 # Phase 4 — Checklists, traffic light, filings, reminders and scheduled workers
 
+> **Status: completed 2026-09-19** on branch `phase-4`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** The gestoría sees at a glance which clients still owe documentation for the period, files each obligation with its result and receipt, and the system chases clients and managers on its own every morning.

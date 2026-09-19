@@ -215,12 +215,22 @@ function ObligationRow({
                   file(event.currentTarget);
                 }}
               >
-                <SelectField label="Resultado" name="result" defaultValue="TO_PAY">
+                <SelectField
+                  label="Resultado"
+                  name="result"
+                  id={`result-${o.id}`}
+                  defaultValue="TO_PAY"
+                >
                   <option value="TO_PAY">A pagar</option>
                   <option value="TO_REFUND">A devolver</option>
                   <option value="ZERO">Sin importe (cero)</option>
                 </SelectField>
-                <Field label="Importe (€)" name="amount" inputMode="decimal" />
+                <Field
+                  label="Importe (€)"
+                  name="amount"
+                  id={`amount-${o.id}`}
+                  inputMode="decimal"
+                />
                 <label className="flex items-center gap-2">
                   <input type="checkbox" name="directDebit" className="size-4" /> Domiciliado
                 </label>
@@ -250,6 +260,7 @@ function ObligationRow({
                 <Field
                   label="Importe previsto (€), visible para el cliente"
                   name="estimate"
+                  id={`estimate-${o.id}`}
                   inputMode="decimal"
                   defaultValue={o.estimate}
                 />

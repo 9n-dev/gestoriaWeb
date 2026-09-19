@@ -4,6 +4,13 @@ import { prisma, tenantDb } from '@/lib/db';
 import { listAudit } from '@/modules/audit/service';
 import { loadSessionUser, completeLogin } from '@/modules/auth/service';
 import type { SessionUser } from '@/modules/auth/permissions';
+import { getDashboard } from '@/modules/checklists/dashboard';
+import { getClientChecklist, tenantOverview } from '@/modules/checklists/service';
+import {
+  listClientObligations,
+  listUpcomingObligations,
+  startObligation,
+} from '@/modules/obligations/workflow';
 import { getClientFor, listAssignableManagers, listClientsFor } from '@/modules/clients/service';
 import { listTaxProfiles } from '@/modules/clients/tax-profiles/service';
 import { listPermanentDocuments } from '@/modules/documents/permanent';
@@ -134,6 +141,33 @@ describe('tenant isolation', () => {
           }),
         ).toEqual([]);
         expect(await listSavedViews(staff)).toEqual([]);
+      }
+    });
+
+    it('checklists, obligations and dashboard: nothing of B is visible or actionable from A', async () => {
+      const obligation = await prisma.obligation.findFirstOrThrow({ where: { tenantId: b } });
+      const period = { year: 2026, type: 'QUARTER' as const, ordinal: 3 };
+      for (const user of usersOfA) {
+        await expect(
+          getClientChecklist(user, worldB.client.id, { period }),
+          user.role,
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        await expect(
+          listClientObligations(user, worldB.client.id),
+          user.role,
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        await expect(startObligation(user, obligation.id), user.role).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+      }
+      for (const staff of usersOfA.slice(1)) {
+        expect(await tenantOverview(staff, period)).toEqual([]);
+        expect(await listUpcomingObligations(staff, { days: 366 }, '2026-01-01')).toEqual([]);
+        expect(await getDashboard(staff)).toMatchObject({
+          redClients: 0,
+          documentsToProcess: 0,
+          deadlinesThisWeek: 0,
+        });
       }
     });
 

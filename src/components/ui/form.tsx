@@ -60,15 +60,16 @@ const control = 'min-h-11 rounded-md border border-border bg-surface px-3 text-b
 export function SelectField({
   label,
   name,
+  id = name,
   children,
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & { label: string; name: string }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={name} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-medium">
         {label}
       </label>
-      <select id={name} name={name} className={control} {...props}>
+      <select id={id} name={name} className={control} {...props}>
         {children}
       </select>
     </div>

@@ -8,10 +8,10 @@ summary and permission matrix are in [`docs/foundation.md`](docs/foundation.md);
 each decision is in [`docs/adr/`](docs/adr). Known shortcuts live in
 [`docs/tech-debt.md`](docs/tech-debt.md).
 
-**Status: phase 3 of 10.** Gestorías sign up, onboard, import and invite clients and get their tax
-obligations generated; clients send documents from the web, the phone camera or by email; every file
-is scanned and normalised by a worker; managers process them from a keyboard-driven inbox. Checklists,
-reminders, messaging and billing arrive in later phases.
+**Status: phase 4 of 10.** On top of sign-up, onboarding, clients, obligations and document intake: per-period
+checklists with a traffic light, filings with result and receipt, and a worker that every morning reminds
+clients of deadlines and of the exact documents they still owe. Messaging, deliveries, white label, AI
+extraction and billing arrive in later phases.
 
 ## Requirements
 
@@ -54,17 +54,18 @@ ClamAV is heavy and not needed until phase 3: `docker compose --profile antiviru
 
 ## Scripts
 
-| Script                            | What it does                                                                                                                                                                             |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run dev` / `build` / `start` | Next.js                                                                                                                                                                                  |
-| `npm run lint`                    | ESLint + Prettier check (`npm run format` fixes formatting)                                                                                                                              |
-| `npm run typecheck`               | `tsc --noEmit`                                                                                                                                                                           |
-| `npm test`                        | Vitest: unit + integration, against the `gestoria_test` database (migrated automatically)                                                                                                |
-| `npm run worker`                  | BullMQ worker (`src/jobs/worker.ts`)                                                                                                                                                     |
-| `npm run test:e2e`                | Playwright: onboarding, upload → book/reject by keyboard, 10 photos over 3G. Starts the app and a worker itself; needs `docker compose up -d` and `npx playwright install chromium` once |
-| `npm run db:migrate`              | `prisma migrate dev`                                                                                                                                                                     |
-| `npm run db:seed`                 | Idempotent demo seed                                                                                                                                                                     |
-| `npm run db:reset`                | Drop, migrate and seed the development database. Run it yourself: Prisma blocks it for AI agents                                                                                         |
+| Script                              | What it does                                                                                                                                                                             |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev` / `build` / `start`   | Next.js                                                                                                                                                                                  |
+| `npm run lint`                      | ESLint + Prettier check (`npm run format` fixes formatting)                                                                                                                              |
+| `npm run typecheck`                 | `tsc --noEmit`                                                                                                                                                                           |
+| `npm test`                          | Vitest: unit + integration, against the `gestoria_test` database (migrated automatically)                                                                                                |
+| `npm run worker`                    | BullMQ worker (`src/jobs/worker.ts`)                                                                                                                                                     |
+| `npm run job:daily -- [YYYY-MM-DD]` | Runs the morning job (reminders, notices, upkeep) for every tenant, now                                                                                                                  |
+| `npm run test:e2e`                  | Playwright: onboarding, upload → book/reject by keyboard, 10 photos over 3G. Starts the app and a worker itself; needs `docker compose up -d` and `npx playwright install chromium` once |
+| `npm run db:migrate`                | `prisma migrate dev`                                                                                                                                                                     |
+| `npm run db:seed`                   | Idempotent demo seed                                                                                                                                                                     |
+| `npm run db:reset`                  | Drop, migrate and seed the development database. Run it yourself: Prisma blocks it for AI agents                                                                                         |
 
 Tests need `docker compose up -d` (Postgres). They never touch the development database.
 
@@ -172,6 +173,29 @@ anyone  ──(5) GET /api/files/:id ────────────► app
 - Production bucket (R2) needs a CORS rule allowing `PUT` from the portal origins; MinIO allows it by default.
 
 See ADR 0016–0018.
+
+## Checklists, filings and reminders
+
+- **Checklist**: generated per client and VAT period from the tax profile. Items tick themselves when a
+  document of that type arrives for the period; a manager can tick ("no payrolls this quarter"), add or
+  remove items. **Traffic light**: green = nothing missing · amber = missing, more than 7 days to the first
+  filing of the period · red = missing and 7 days or fewer, or overdue. Overview with filters and CSV export
+  in `/panel/semaforo`. "Cerrar documentación" blocks client uploads for that period.
+- **Filings**: `PENDING_DOCS → IN_PROGRESS → FILED` with result (pay / refund / zero), amount, direct debit and
+  receipt; the client is notified and sees it in `/plazos`. Calendar of what is due in `/panel/plazos`.
+- **Every day at 08:00 Europe/Madrid** the worker runs, per tenant and idempotently (`ReminderLog`):
+  one message per client with the forms due in 15, 7, 2 and 0 days and the concrete list of missing
+  documents; a notice to the manager about clients silent for N days; expiry notices of permanent documents
+  (60/30/7); checklist upkeep; obligations of the next year from 1 December. Offsets, on/off and N are
+  tenant settings (`/panel/ajustes/recordatorios`). A `cleanup` job removes dead sessions, tokens, unverified
+  sign-ups and abandoned uploads.
+- **Dead letters**: jobs retry 5 times with exponential backoff and then stay in BullMQ's failed set, listed
+  (ids only) with a retry button for superadmins in `/plataforma/jobs`.
+
+To try the morning run without waiting for 08:00: `npm run job:daily -- 2026-10-13` (any date; omit it for
+today). It is the same idempotent code the scheduler runs; read the result in the `email_log` table.
+
+See ADR 0019–0020.
 
 ## Health
 
