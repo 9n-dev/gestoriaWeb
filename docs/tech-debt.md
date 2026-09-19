@@ -13,7 +13,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-016 | — | **Client import is CSV only** (ADR 0014). XLSX needs a large dependency. |
 | TD-018 | — | **`/registro` has no captcha.** It is rate limited per IP since phase 9 (10 per hour) and pending tenants that never verify are swept after 7 days, but a distributed script can still create pending tenants and trigger verification emails. |
 | TD-019 | — | **K/L/M NIFs are accepted by format only** (`lib/tax-id.ts`); their control character is not checked. |
-| TD-020 | — | **Staff cannot be disabled, re-roled or removed from the UI**, and client users cannot be unlinked (`client.removeUser` exists in the matrix, no service yet). Invitation and listing are done. |
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
 | TD-026 | — | **Client list filters in memory** (`q` search over the scoped list). Fine for hundreds of clients per tenant; move to SQL with pagination if a tenant grows past that. |
 | TD-027 | 5 | **Resend inbound adapter is untested against a live account.** Signature verification and routing are covered; the attachment download endpoint in `inbound/resend.ts` was written from the published API and must be verified with the first real domain. |
@@ -38,7 +37,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-055 | — | **Export has no vendor presets** (A3, Sage, Contasol…): columns and separator only. |
 | TD-056 | — | **Invoice PDF is plain text** (`lib/pdf.ts`): legally complete, visually poor, and the verification QR is printed as a URL, not as an image. A designed template needs a PDF library (ADR first). |
 | TD-057 | — | **Stripe and GoCardless adapters are untested against live accounts**; signatures and idempotency are covered with the documented schemes. There is no SEPA mandate set-up flow: `Client.gocardlessMandateId` must be filled by hand. |
-| TD-058 | — | **Billing settings have no UI** (`Tenant.settings.billing`: payment days, dunning days, delinquency threshold, series code). Defaults: 15, 3/10/20, 30, `A`. |
 | TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
 | TD-060 | — | **The new-invoice form takes three lines and one VAT rate**; the service accepts up to 50 lines with their own rates. |
 | TD-061 | — | **A TOTP code can be replayed inside its 30-second window**: the last accepted step is not stored. Needs a `totpLastStep` column; the attacker would already need the password and a live code. |
@@ -84,3 +82,5 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-029 | phase 10 | Offline upload queue in IndexedDB: files survive a lost connection, a closed page or a restart and are sent (resumed) on the next online visit. E2E covered. |
 | TD-040 | phase 10 | `demo-reset` job at 04:00 when `DEMO_MODE`: physically deletes the demo tenants and runs the seed again. |
 | TD-034 | phase 9 | `/api/uploads` (per user) and the three webhooks (per IP) are rate limited. |
+| TD-020 | post-launch | Team management: re-role, disable with mandatory hand-over of clients, reactivate; "Retirar acceso" for client users (ADR 0033). |
+| TD-058 | post-launch | Ajustes → Facturación: payment term, unpaid reminders, delinquency threshold and invoice series, validated and audited. |

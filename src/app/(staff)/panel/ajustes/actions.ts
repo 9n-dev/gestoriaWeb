@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { formValues, runAction, type ActionState } from '@/lib/action';
 import { inviteClientsInBulk, inviteStaff } from '@/modules/auth/invitations';
 import { requireUser } from '@/modules/auth/session';
+import { disableStaffMember, enableStaffMember, setStaffRole } from '@/modules/auth/team';
 import { resetTwoFactor } from '@/modules/auth/two-factor/service';
 import { listClientsFor } from '@/modules/clients/service';
 import { DOCUMENT_TYPE_LABELS } from '@/modules/clients/tax-profiles/labels';
@@ -67,6 +68,46 @@ export async function resetTwoFactorAction(
     return {
       success: 'Hecho. Se le han cerrado las sesiones y la configurará de nuevo al entrar.',
     };
+  });
+}
+
+export async function setStaffRoleAction(
+  userId: string,
+  _: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    await setStaffRole(await requireUser(), userId, formValues(formData).role ?? '');
+    revalidatePath('/panel/ajustes/equipo');
+    return { success: 'Rol cambiado. Tendrá que volver a entrar.' };
+  });
+}
+
+export async function disableStaffAction(
+  userId: string,
+  _: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    const { reassigned } = await disableStaffMember(
+      await requireUser(),
+      userId,
+      formValues(formData).reassignToId || undefined,
+    );
+    revalidatePath('/panel/ajustes/equipo');
+    return {
+      success: reassigned
+        ? `Dado de baja. ${reassigned} ${reassigned === 1 ? 'cliente reasignado' : 'clientes reasignados'}.`
+        : 'Dado de baja.',
+    };
+  });
+}
+
+export async function enableStaffAction(userId: string, _: ActionState): Promise<ActionState> {
+  return runAction(async () => {
+    await enableStaffMember(await requireUser(), userId);
+    revalidatePath('/panel/ajustes/equipo');
+    return { success: 'Acceso reactivado.' };
   });
 }
 

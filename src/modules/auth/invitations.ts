@@ -103,6 +103,13 @@ export async function inviteClientUser(
     create: { tenantId, clientId, userId: invited.id },
     update: {},
   });
+  // Somebody whose last access was removed comes back with the new one.
+  if (invited.status === 'DISABLED') {
+    invited = await db.user.update({
+      where: { id: invited.id },
+      data: { status: invited.emailVerifiedAt ? 'ACTIVE' : 'INVITED' },
+    });
+  }
   if (invited.status === 'INVITED') await sendInvitation(tenantId, invited, user);
   return invited;
 }
@@ -183,7 +190,10 @@ export async function listStaff(user: SessionUser) {
   assertCan(user, 'user.manage');
   return tenantDb(requireTenantId(user)).user.findMany({
     where: { role: { in: [...STAFF_ROLES] } },
-    select: userListSelect,
+    select: {
+      ...userListSelect,
+      _count: { select: { assignedClients: { where: { deletedAt: null } } } },
+    },
     orderBy: { name: 'asc' },
   });
 }
