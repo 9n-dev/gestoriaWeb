@@ -73,7 +73,7 @@ function unfilter(raw: Buffer, rowBytes: number, height: number, bpp: number): B
 }
 
 /**
- * PNG decoder for logos: every colour type and bit depth, palette transparency, no interlacing.
+ * PNG decoder for logos: every colour type, bit depth and kind of transparency; no interlacing.
  * PDF cannot take a PNG as it is when it has an alpha channel, so pixels are split into an RGB
  * image and a soft mask.
  */
@@ -81,7 +81,7 @@ function fromPng(bytes: Uint8Array): PdfImage | null {
   const view = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let header: { width: number; height: number; depth: number; type: number } | null = null;
   let palette: Buffer | null = null;
-  let paletteAlpha: Buffer | null = null;
+  let transparency: Buffer | null = null;
   const idat: Buffer[] = [];
 
   for (let offset = 8; offset + 12 <= view.length;) {
@@ -97,7 +97,7 @@ function fromPng(bytes: Uint8Array): PdfImage | null {
         type: data[9]!,
       };
     } else if (type === 'PLTE') palette = data;
-    else if (type === 'tRNS') paletteAlpha = data;
+    else if (type === 'tRNS') transparency = data;
     else if (type === 'IDAT') idat.push(data);
     else if (type === 'IEND') break;
     offset += 12 + length;
@@ -113,15 +113,22 @@ function fromPng(bytes: Uint8Array): PdfImage | null {
   if (raw.length < (rowBytes + 1) * height) return null;
   const pixels = unfilter(raw, rowBytes, height, Math.max(1, (channels * depth) >> 3));
 
-  /** Sample `index` of a row, as stored (palette index or intensity at the file's bit depth). */
-  const sample = (row: number, index: number): number => {
+  /** Sample `index` of a row exactly as stored: palette index, or intensity at the file's bit depth. */
+  const stored = (row: number, index: number): number => {
     const base = row * rowBytes;
     if (depth === 8) return pixels[base + index]!;
-    if (depth === 16) return pixels[base + index * 2]!; // high byte is enough for print
+    if (depth === 16) return pixels.readUInt16BE(base + index * 2);
     const bit = index * depth;
     return (pixels[base + (bit >> 3)]! >> (8 - depth - (bit & 7))) & ((1 << depth) - 1);
   };
-  const scale = depth < 8 ? 255 / ((1 << depth) - 1) : 1;
+  /** The same sample as 8 bits: the high byte of 16, the low depths stretched to 0–255. */
+  const to8 = (value: number) =>
+    depth === 16 ? value >> 8 : depth < 8 ? Math.round((value * 255) / ((1 << depth) - 1)) : value;
+
+  // Without an alpha channel, tRNS names the one colour (at file depth) that is fully transparent.
+  const keyed =
+    (type === 0 || type === 2) && transparency && transparency.length >= (type === 0 ? 2 : 6);
+  const key = keyed ? [0, 2, 4].map((at) => transparency!.readUInt16BE(type === 0 ? 0 : at)) : null;
 
   const rgb = Buffer.alloc(width * height * 3);
   const alpha = Buffer.alloc(width * height, 255);
@@ -130,16 +137,16 @@ function fromPng(bytes: Uint8Array): PdfImage | null {
       const at = row * width + col;
       const first = col * channels;
       if (type === 3) {
-        const index = sample(row, first);
+        const index = stored(row, first);
         rgb.set(palette!.subarray(index * 3, index * 3 + 3), at * 3);
-        alpha[at] = paletteAlpha?.[index] ?? 255;
-      } else if (type === 0 || type === 4) {
-        rgb.fill(Math.round(sample(row, first) * scale), at * 3, at * 3 + 3);
-        if (type === 4) alpha[at] = sample(row, first + 1);
-      } else {
-        for (let c = 0; c < 3; c++) rgb[at * 3 + c] = sample(row, first + c);
-        if (type === 6) alpha[at] = sample(row, first + 3);
+        alpha[at] = transparency?.[index] ?? 255;
+        continue;
       }
+      const grey = type === 0 || type === 4;
+      const colour = [0, 1, 2].map((c) => stored(row, first + (grey ? 0 : c)));
+      colour.forEach((value, c) => (rgb[at * 3 + c] = to8(value)));
+      if (type === 4 || type === 6) alpha[at] = to8(stored(row, first + (grey ? 1 : 3)));
+      else if (key && colour.every((value, c) => value === key[c])) alpha[at] = 0;
     }
   }
 
