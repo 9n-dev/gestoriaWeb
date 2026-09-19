@@ -22,8 +22,14 @@ Rules around it: only a logo the antivirus has marked `CLEAN` is used; it is rea
 
 Rather than teaching the server more formats, the branding form now re-encodes in the browser — which can decode anything it can display — whatever `pdfImageFrom` would refuse: WebP, interlaced PNG, CMYK JPEG, and images over 4 megapixels (scaled down). The result is a plain PNG with its transparency, swapped into the file input before the form is sent (`components/branding/normalise-logo.ts`). Fine logos go up untouched. The server keeps accepting WebP and keeps its fallback, so nothing depends on the browser behaving. The decoder also gained colour-key transparency (`tRNS` on greyscale and RGB), and the signature certificate got the same treatment as the invoice: logo, brand colour and a laid-out page.
 
+## Second addendum: the server does the rest, and WebP goes
+
+Closing TD-078 turned up the real state of WebP: the branding service accepted it, but the file pipeline every upload goes through (`processFile`, type sniffed from bytes) has never known WebP, so the worker deleted such a logo from the bucket seconds after it was stored. There were no working WebP logos to migrate. The honest fix is one rule in one place: **branding images are PNG or JPEG**, refused otherwise with a message that says so; the form keeps offering WebP in the file picker because it converts it before sending.
+
+With WebP out, the server was taught the remaining variants instead of depending on the browser: Adam7 interlaced PNGs (seven passes scattered into the full image; checked pixel for pixel against files written by ImageMagick, in `fixtures/logos/`), CMYK JPEGs (`/DeviceCMYK` with the inverted `/Decode` that print tools expect; checked by rasterising), and a box filter that shrinks decoded logos to about 300 dpi of their printed size, weighting colour by alpha so transparent pixels do not stain the edges — a 4-megapixel logo no longer adds its weight to every invoice.
+
 ## Consequences
 
-- Logos stored before the addendum, or uploaded with JavaScript off, in a format the PDFs cannot embed keep falling back to the name until they are uploaded again (TD-078).
+- See the second addendum: nothing is left falling back except a PNG over 4 megapixels uploaded without JavaScript.
 - Decoded pixels live in memory while the PDF is built (at most 16 MB for the largest accepted image).
 - Invoices already issued keep the PDF they were issued with.

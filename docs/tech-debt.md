@@ -53,7 +53,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-073 | — | **Lighthouse is run by hand** against the local production build (scores in the README), not in CI, and not on a throttled real device. |
 | TD-074 | — | **The demo reset only recreates `perez` and `otra`**: gestorías that visitors register in a demo environment stay (unverified ones are swept after 7 days). |
 | TD-075 | — | **Only server-side errors are reported** (`onRequestError`, actions, API routes, webhooks, final job failures). Browser errors are not. |
-| TD-078 | — | **Logos are normalised in the browser, not on the server.** A WebP, interlaced PNG or CMYK JPEG that was stored before this change, or uploaded with JavaScript off, still shows in the portal but not in the PDFs (they fall back to the name). Fix for the tenant: upload the logo again. A server-side conversion would need `sharp`. |
 
 ## Closed
 
@@ -87,3 +86,4 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-056 | post-launch | Designed invoice PDF on the extended own writer: brand colour, aligned amounts, VAT/IRPF breakdown, real vector QR, pagination, `€` rendered correctly (ADR 0034). |
 | TD-076 | post-launch | Tenant logo on the invoice PDF: own PNG decoder (all colour types, alpha as soft mask) and JPEG pass-through; only antivirus-clean files; never blocks issuing (ADR 0035). |
 | TD-077 | post-launch | Awkward logos (WebP, interlaced PNG, CMYK JPEG, over 4 MP) become a plain PNG in the browser before upload; the PNG decoder honours colour-key transparency; the signature certificate has a designed layout with logo and brand colour (leftover: TD-078). |
+| TD-078 | post-launch | Logos no longer need the browser to be PDF-ready: the server decodes interlaced (Adam7) PNGs, embeds CMYK JPEGs and shrinks big logos to print size. WebP is refused by the server (the worker's file pipeline never accepted it and was deleting such logos seconds after upload); the form converts it to PNG first. Also fixed: a logo-only branding update wiped the colours. |

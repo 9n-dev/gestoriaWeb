@@ -184,6 +184,17 @@ describe('tenants service', () => {
         code: 'VALIDATION',
       });
       await expect(updateBranding(admin, { primaryColor: 'red' })).rejects.toThrow();
+
+      // WebP is refused: the file pipeline and the PDFs cannot handle it (the form converts it first).
+      const webp = new Uint8Array(Buffer.from('RIFF\0\0\0\0WEBPVP8 ', 'latin1'));
+      await expect(
+        updateBranding(admin, { logo: { name: 'logo.webp', bytes: webp } }),
+      ).rejects.toMatchObject({ userMessage: 'El logo debe ser una imagen PNG o JPG.' });
+
+      // Changing only the logo keeps the colours that were there.
+      const again = await updateBranding(admin, { logo: { name: 'otro.png', bytes: png } });
+      expect(again).toMatchObject({ primaryColor: '#0055aa' });
+      expect(again.logoFileId).not.toBe(branding.logoFileId);
     });
 
     it('sample data: created once, removable with one call, leaving nothing behind', async () => {

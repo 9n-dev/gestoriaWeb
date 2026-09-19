@@ -174,7 +174,7 @@ export class PdfDocument {
       const common = `/Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /BitsPerComponent 8`;
       imageObjects.push(
         stream(
-          `${common} /ColorSpace /${image.colorSpace} /Filter /${image.filter}${image.alpha ? ` /SMask ${id + 1} 0 R` : ''}`,
+          `${common} /ColorSpace /${image.colorSpace} /Filter /${image.filter}${image.decode ? ` /Decode ${image.decode}` : ''}${image.alpha ? ` /SMask ${id + 1} 0 R` : ''}`,
           image.data,
         ),
       );

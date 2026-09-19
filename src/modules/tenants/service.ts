@@ -231,13 +231,6 @@ const IMAGE_SIGNATURES: Array<{
     extension: 'jpg',
     matches: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
   },
-  {
-    mime: 'image/webp',
-    extension: 'webp',
-    matches: (b) =>
-      String.fromCharCode(...b.slice(0, 4)) === 'RIFF' &&
-      String.fromCharCode(...b.slice(8, 12)) === 'WEBP',
-  },
 ];
 
 type ImageInput = { name: string; bytes: Uint8Array };
@@ -249,7 +242,11 @@ export type BrandingInput = {
   favicon?: ImageInput;
 };
 
-/** Stores a branding image. Its type comes from the bytes, never from the file name; SVG is refused. */
+/**
+ * Stores a branding image. Its type comes from the bytes, never from the file name. PNG and JPEG
+ * only: they are what the file pipeline (antivirus worker) and the PDFs we generate can handle; the
+ * branding form converts anything else in the browser before sending it (ADR 0035).
+ */
 async function storeBrandingImage(
   tenantId: string,
   image: ImageInput,
@@ -257,7 +254,7 @@ async function storeBrandingImage(
 ): Promise<string> {
   const { bytes } = image;
   const type = IMAGE_SIGNATURES.find((signature) => signature.matches(bytes));
-  if (!type) throw new AppError('VALIDATION', `${label} debe ser una imagen PNG, JPG o WebP.`);
+  if (!type) throw new AppError('VALIDATION', `${label} debe ser una imagen PNG o JPG.`);
   if (bytes.length > MAX_LOGO_BYTES)
     throw new AppError('VALIDATION', `${label} no puede superar 1 MB.`);
 
@@ -288,13 +285,17 @@ export async function updateBranding(
   assertCan(user, 'branding.manage');
   const tenantId = requireTenantId(user);
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
-  const branding: Branding = {
-    ...parseBranding(tenant.branding),
-    ...brandingSchema.pick({ primaryColor: true, accentColor: true, senderName: true }).parse({
+  const changes = brandingSchema
+    .pick({ primaryColor: true, accentColor: true, senderName: true })
+    .parse({
       primaryColor: input.primaryColor || undefined,
       accentColor: input.accentColor || undefined,
       senderName: input.senderName?.trim() || undefined,
-    }),
+    });
+  const branding: Branding = {
+    ...parseBranding(tenant.branding),
+    // Only what was actually sent: an absent field must not wipe the stored one.
+    ...Object.fromEntries(Object.entries(changes).filter(([, value]) => value !== undefined)),
   };
   if (input.logo?.bytes.length)
     branding.logoFileId = await storeBrandingImage(tenantId, input.logo, 'El logo');
