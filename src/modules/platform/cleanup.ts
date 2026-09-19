@@ -41,6 +41,8 @@ export async function runCleanup(now: Date = new Date()): Promise<CleanupSummary
     const db = tenantDb(file.tenantId);
     await db.document.deleteMany({ where: { fileId: file.id } });
     await db.permanentDocument.deleteMany({ where: { fileId: file.id } });
+    await db.delivery.deleteMany({ where: { fileId: file.id } });
+    await db.messageAttachment.deleteMany({ where: { fileId: file.id } });
     await db.obligation.updateMany({
       where: { receiptFileId: file.id },
       data: { receiptFileId: null },

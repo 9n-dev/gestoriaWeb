@@ -14,7 +14,9 @@ import {
   type Resource,
   type SessionUser,
 } from '@/modules/auth/permissions';
+import { deliveryResource, readableDelivery } from '@/modules/deliveries/access';
 import { notifyClientUsers } from '@/modules/messaging/notifications';
+import { readableThread, threadResource } from '@/modules/messaging/service';
 import {
   DOCUMENT_TYPES,
   documentFieldsSchema,
@@ -348,6 +350,9 @@ export async function fileAccessUrl(
     where: { id: fileId, deletedAt: null },
     include: {
       document: { select: { id: true, deletedAt: true } },
+      messageAttachment: { select: { id: true, message: { select: { threadId: true } } } },
+      delivery: { select: { id: true, deletedAt: true } },
+      deliveryCertificate: { select: { id: true, deletedAt: true } },
       obligationReceipt: {
         select: {
           id: true,
@@ -381,6 +386,23 @@ export async function fileAccessUrl(
     if (!can(user, 'permanentDocument.read', resource)) throw notFound();
     assertCan(user, 'permanentDocument.download', resource);
     entity = { name: 'PermanentDocument', id };
+  } else if (file?.messageAttachment) {
+    // Internal threads are refused to client users inside readableThread (can() + `internal`).
+    const thread = await readableThread(user, file.messageAttachment.message.threadId);
+    assertCan(user, 'messageAttachment.download', {
+      ...threadResource(thread),
+      fileStatus: file.status,
+    });
+    entity = { name: 'Thread', id: thread.id };
+  } else if (file?.delivery ?? file?.deliveryCertificate) {
+    // Same rules for the delivered file and for its signature certificate. The audit entries
+    // written below are the view/download history of the delivery (§6.7, ADR 0008).
+    const delivery = await readableDelivery(user, (file.delivery ?? file.deliveryCertificate)!.id);
+    assertCan(user, 'delivery.download', {
+      ...deliveryResource(delivery),
+      fileStatus: file.status,
+    });
+    entity = { name: 'Delivery', id: delivery.id };
   } else if (file?.obligationReceipt) {
     const { client, id } = file.obligationReceipt;
     const resource: Resource = {

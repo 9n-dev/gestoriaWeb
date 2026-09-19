@@ -57,6 +57,25 @@ export const uploadRequestSchema = z.discriminatedUnion('purpose', [
     expiresAt: blankToNull(isoDate),
   }),
   fileSchema.extend({
+    purpose: z.literal('MESSAGE_ATTACHMENT'),
+    messageId: z.string().min(1),
+  }),
+  fileSchema.extend({
+    purpose: z.literal('DELIVERY'),
+    title: z.string().trim().min(2, 'Indica un título.').max(200),
+    category: z.enum(['FILED_FORM', 'LEDGER', 'LETTER', 'CERTIFICATE', 'OTHER']).default('OTHER'),
+    period: blankToNull(
+      z.object({
+        year: z.number().int(),
+        type: z.enum(['MONTH', 'QUARTER', 'YEAR']),
+        ordinal: z.number().int(),
+      }),
+    ),
+    /** Day from which the client sees it. Empty = at once. */
+    visibleFrom: blankToNull(isoDate),
+    requiresSignature: z.boolean().default(false),
+  }),
+  fileSchema.extend({
     purpose: z.literal('OBLIGATION_RECEIPT'),
     obligationId: z.string().min(1),
   }),
