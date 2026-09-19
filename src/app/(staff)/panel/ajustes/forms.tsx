@@ -84,8 +84,13 @@ export function BrandingForm({
             name="logo"
             type="file"
             accept="image/png,image/jpeg,image/webp"
+            aria-describedby="logo-hint"
             className="text-sm"
           />
+          <p id="logo-hint" className="text-sm text-fg-muted">
+            También encabeza tus facturas si es PNG o JPG (un logo en WebP se ve en el portal, pero
+            no en los PDF).
+          </p>
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="favicon" className="text-sm font-medium">

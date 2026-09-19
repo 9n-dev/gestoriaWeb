@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
 import { formatEuros } from '@/lib/money';
 import { PAGE, PdfDocument, wrapText, type PdfPage } from '@/lib/pdf';
+import { pdfImageFrom } from '@/lib/pdf-image';
 import type { InvoiceTotals } from './totals';
 
 export type Party = { name: string; taxId: string; address: string };
@@ -17,6 +18,8 @@ export type InvoicePdfInput = {
   hash: string;
   /** Tenant's primary colour (white label). Falls back to the platform blue. */
   brandColor?: string | null;
+  /** Tenant's logo file (PNG or JPEG). Anything else, or nothing, leaves the header with the name only. */
+  logo?: Uint8Array | null;
 };
 
 const MARGIN = 48;
@@ -25,6 +28,7 @@ const MUTED = '#52525b';
 const RULE = '#d4d4d8';
 const BAND = '#f4f4f5';
 const ROW_BOTTOM = 770; // rows never go below this; the footer lives under it
+const LOGO_BOX = { width: 170, height: 46 };
 const COLUMNS = { quantity: 360, unitPrice: 450, amount: RIGHT };
 
 const date = (iso: string) => iso.split('-').reverse().join('/');
@@ -91,7 +95,15 @@ export function invoicePdf(input: InvoicePdfInput): Uint8Array {
 
   // ── Header: who issues, what this is ──
   let page = newPage();
-  const issuerBottom = party(page, MARGIN, 56, 250, input.issuer);
+  let issuerTop = 56;
+  const logo = input.logo ? pdfImageFrom(input.logo) : null;
+  if (logo) {
+    // Fitted into the box keeping its proportions. The legal name still follows as text: the law asks for it.
+    const ratio = Math.min(LOGO_BOX.width / logo.width, LOGO_BOX.height / logo.height);
+    page.image(document.addImage(logo), MARGIN, 30, logo.width * ratio, logo.height * ratio);
+    issuerTop = 30 + logo.height * ratio + 20;
+  }
+  const issuerBottom = party(page, MARGIN, issuerTop, 250, input.issuer);
   page.text(RIGHT, 60, input.rectifies ? 'FACTURA RECTIFICATIVA' : 'FACTURA', {
     size: input.rectifies ? 15 : 20,
     font: 'bold',

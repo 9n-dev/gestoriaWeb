@@ -18,6 +18,6 @@ Option 3, ~190 lines. Right alignment needs text widths, so the writer carries t
 
 ## Consequences
 
-- No logo on the invoice (TD-076): images would be the next step and the point where a library starts to pay for itself.
+- No logo on the invoice at this point (TD-076); added later without a library, see ADR 0035.
 - Only Helvetica: characters outside WinAnsi (Cyrillic, CJK) still become `?`. Spanish, Catalan, Galician and Basque are covered.
 - Issued invoices are immutable: those issued before this change keep their old PDF.

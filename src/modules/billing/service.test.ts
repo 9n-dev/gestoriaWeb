@@ -20,7 +20,8 @@ import {
 } from './service';
 
 const putObject = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/storage/objects', () => ({ putObject }));
+const getObjectBytes = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/storage/objects', () => ({ putObject, getObjectBytes }));
 vi.mock('@/lib/storage/multipart', () => ({
   signedDownloadUrl: vi.fn(async () => 'https://s3.test/signed'),
 }));
@@ -136,6 +137,55 @@ describe('billing', () => {
     expect(
       await prisma.notification.count({ where: { userId: clientUser.id, type: 'INVOICE_ISSUED' } }),
     ).toBe(1);
+  });
+
+  it('puts the tenant logo on the invoice once the antivirus has cleared it, and never fails because of it', async () => {
+    // 1x1 opaque red PNG.
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
+      'base64',
+    );
+    const logo = await prisma.storedFile.create({
+      data: {
+        tenantId,
+        kind: 'BRANDING',
+        status: 'UPLOADED',
+        storageKey: `${tenantId}/branding/logo.png`,
+        originalName: 'logo.png',
+        mimeType: 'image/png',
+        sizeBytes: png.length,
+      },
+    });
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { branding: { primaryColor: '#0f4c81', logoFileId: logo.id } },
+    });
+    const issue = async () => {
+      putObject.mockClear();
+      await issueInvoice(admin, await createInvoice(admin, { clientId, lines: [line(10)] }));
+      return Buffer.from(putObject.mock.calls[0]![1] as Uint8Array).toString('latin1');
+    };
+
+    // Not scanned yet: the invoice goes out without it, and the bucket is not even asked.
+    expect(await issue()).not.toContain('/Subtype /Image');
+    expect(getObjectBytes).not.toHaveBeenCalled();
+
+    await prisma.storedFile.update({ where: { id: logo.id }, data: { status: 'CLEAN' } });
+    getObjectBytes.mockResolvedValueOnce(new Uint8Array(png));
+    const withLogo = await issue();
+    expect(withLogo).toContain('/Subtype /Image /Width 1 /Height 1');
+    expect(withLogo).toContain('/Im1 Do');
+
+    // A format we cannot embed (WebP) and a bucket that fails: still an invoice, just no logo.
+    getObjectBytes.mockResolvedValueOnce(
+      new Uint8Array(Buffer.from('RIFF\0\0\0\0WEBPVP8 ', 'latin1')),
+    );
+    expect(await issue()).not.toContain('/Subtype /Image');
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    getObjectBytes.mockRejectedValueOnce(new Error('bucket down'));
+    expect(await issue()).not.toContain('/Subtype /Image');
+    log.mockRestore();
+    expect(await prisma.invoice.count({ where: { tenantId, status: 'ISSUED' } })).toBe(4);
   });
 
   it('refuses to issue without the legal data of the gestoría or the address of the client', async () => {

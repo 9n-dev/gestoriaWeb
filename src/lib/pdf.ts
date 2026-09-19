@@ -1,8 +1,10 @@
 /**
  * Small PDF writer: A4 pages, the two standard Helvetica fonts, text (left, right or centred),
  * filled rectangles and lines, in a top-left coordinate system. Enough to lay out invoices and
- * certificates without a PDF library (ADR 0034). No images, no compression, no custom fonts.
+ * certificates without a PDF library (ADR 0034). Images come in through `pdf-image.ts`. No custom fonts.
  */
+import type { PdfImage } from './pdf-image';
+
 export const PAGE = { width: 595, height: 842 } as const;
 
 export type PdfFont = 'regular' | 'bold';
@@ -120,6 +122,14 @@ export class PdfPage {
     return this;
   }
 
+  /** An image registered with `PdfDocument.addImage`; `y` is its top edge. */
+  image(name: string, x: number, y: number, width: number, height: number): this {
+    this.ops.push(
+      `q ${n(width)} 0 0 ${n(height)} ${n(x)} ${n(PAGE.height - y - height)} cm /${name} Do Q`,
+    );
+    return this;
+  }
+
   line(x1: number, y1: number, x2: number, y2: number, color = '#000000', width = 0.5): this {
     this.ops.push(
       `${rgb(color)} RG ${width} w ${n(x1)} ${n(PAGE.height - y1)} m ${n(x2)} ${n(PAGE.height - y2)} l S`,
@@ -141,26 +151,63 @@ export class PdfDocument {
     return this.pages.length;
   }
 
+  private readonly images: PdfImage[] = [];
+
+  /** Registers an image once; draw it on any page with `page.image(name, …)`. */
+  addImage(image: PdfImage): string {
+    this.images.push(image);
+    return `Im${this.images.length}`;
+  }
+
   build(): Uint8Array {
     const font = (name: string) =>
       `<< /Type /Font /Subtype /Type1 /BaseFont /${name} /Encoding /WinAnsiEncoding >>`;
-    // 1 catalog, 2 page tree, 3–4 fonts, then a page object and its content stream per page.
-    const pageIds = this.pages.map((_, index) => 5 + index * 2);
+    // Binary streams travel as Latin-1 strings: one char per byte, lossless both ways.
+    const stream = (dictionary: string, data: Uint8Array) =>
+      `<< ${dictionary} /Length ${data.byteLength} >>\nstream\n${Buffer.from(data).toString('latin1')}\nendstream`;
+
+    // 1 catalog, 2 page tree, 3–4 fonts, then images (each followed by its soft mask, if any),
+    // then a page object and its content stream per page.
+    const imageObjects: string[] = [];
+    const imageIds = this.images.map((image) => {
+      const id = 5 + imageObjects.length;
+      const common = `/Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /BitsPerComponent 8`;
+      imageObjects.push(
+        stream(
+          `${common} /ColorSpace /${image.colorSpace} /Filter /${image.filter}${image.alpha ? ` /SMask ${id + 1} 0 R` : ''}`,
+          image.data,
+        ),
+      );
+      if (image.alpha) {
+        imageObjects.push(
+          stream(`${common} /ColorSpace /DeviceGray /Filter /FlateDecode`, image.alpha),
+        );
+      }
+      return id;
+    });
+    const xObjects = imageIds.length
+      ? ` /XObject << ${imageIds.map((id, index) => `/Im${index + 1} ${id} 0 R`).join(' ')} >>`
+      : '';
+
+    const firstPageId = 5 + imageObjects.length;
+    const pageIds = this.pages.map((_, index) => firstPageId + index * 2);
     const objects = [
       '<< /Type /Catalog /Pages 2 0 R >>',
       `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${this.pages.length} >>`,
       font('Helvetica'),
       font('Helvetica-Bold'),
+      ...imageObjects,
       ...this.pages.flatMap((page, index) => {
         const content = page.ops.join('\n');
         return [
-          `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE.width} ${PAGE.height}] /Contents ${pageIds[index]! + 1} 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>`,
+          `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE.width} ${PAGE.height}] /Contents ${pageIds[index]! + 1} 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >>${xObjects} >> >>`,
           `<< /Length ${Buffer.byteLength(content, 'latin1')} >>\nstream\n${content}\nendstream`,
         ];
       }),
     ];
 
-    let pdf = '%PDF-1.4\n';
+    // The comment of high bytes tells transfer tools that this file is binary.
+    let pdf = '%PDF-1.4\n%\xe2\xe3\xcf\xd3\n';
     const offsets = objects.map((body, index) => {
       const offset = Buffer.byteLength(pdf, 'latin1');
       pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
