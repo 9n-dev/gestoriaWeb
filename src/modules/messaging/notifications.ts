@@ -9,6 +9,8 @@ export type NotificationPayload = {
   body?: string;
   /** Path inside the portal, e.g. "/documentos". */
   link?: string;
+  /** Templated email instead of the generic one built from title and body. */
+  email?: { subject: string; text: string; templateKey: string };
 };
 
 /**
@@ -33,10 +35,26 @@ export async function notifyUsers(
       tenantId,
       userId: user.id,
       channel: 'IN_APP' as const,
-      ...payload,
+      type: payload.type,
+      title: payload.title,
+      body: payload.body,
+      link: payload.link,
     })),
   });
   for (const user of users) {
+    const portal = payload.link
+      ? `Entra en el portal para verlo: ${tenantBaseUrl(tenant)}${payload.link}`
+      : '';
+    if (payload.email) {
+      await sendEmail({
+        tenantId,
+        to: user.email,
+        templateKey: payload.email.templateKey,
+        subject: `${payload.email.subject} · ${tenant.name}`,
+        text: [payload.email.text, portal].filter(Boolean).join('\n\n'),
+      });
+      continue;
+    }
     await sendEmail({
       tenantId,
       to: user.email,
