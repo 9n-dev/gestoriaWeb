@@ -37,6 +37,8 @@ export type InboxDocument = {
   period: string;
   duplicateOfId: string | null;
   confirmed: boolean;
+  extraction: 'NOT_APPLICABLE' | 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED';
+  confidence: number | null;
   rejectionReason: string | null;
   fields: Record<
     | 'supplierName'
@@ -283,6 +285,7 @@ export function Inbox({ documents, filters, views, reasons, managers, periods }:
                     : 'Puede ser un duplicado: coincide con otro documento. Pulsa D para confirmarlo.'}
                 </p>
               )}
+              <ExtractionNote document={selected} />
               {selected.rejectionReason && (
                 <p className="text-sm">Motivo del rechazo: {selected.rejectionReason}</p>
               )}
@@ -340,6 +343,31 @@ export function Inbox({ documents, filters, views, reasons, managers, periods }:
         onReject={(reason, note) => selected && run(() => rejectAction(selected.id, reason, note))}
       />
     </div>
+  );
+}
+
+/** Where the proposed fields come from and how much to trust them (§6.4). */
+function ExtractionNote({ document }: { document: InboxDocument }) {
+  if (document.confirmed || document.extraction === 'NOT_APPLICABLE') return null;
+  if (document.extraction === 'FAILED') {
+    return (
+      <p className="rounded-md bg-surface-muted p-2 text-sm">
+        No hemos podido leer los datos automáticamente: rellénalos a mano (E).
+      </p>
+    );
+  }
+  if (document.extraction !== 'DONE') {
+    return <p className="text-sm text-fg-muted">Leyendo los datos del documento…</p>;
+  }
+  const confidence = document.confidence ?? 0;
+  const level = confidence >= 0.85 ? 'alta' : confidence >= 0.6 ? 'media' : 'baja';
+  return (
+    <p
+      className={`rounded-md p-2 text-sm ${level === 'baja' ? 'bg-surface-muted font-medium' : 'text-fg-muted'}`}
+    >
+      Datos propuestos automáticamente · confianza {level} ({Math.round(confidence * 100)} %).
+      Revísalos y pulsa Enter para confirmarlos, o E para corregirlos.
+    </p>
   );
 }
 

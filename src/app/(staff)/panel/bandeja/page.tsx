@@ -40,6 +40,8 @@ export default async function InboxPage({
     period: row.period ? periodValue(row.period) : '',
     duplicateOfId: row.duplicateOfId,
     confirmed: row.extractionConfirmed,
+    extraction: row.extractionStatus,
+    confidence: row.confidence,
     rejectionReason: row.rejectionReason,
     fields: {
       supplierName: row.supplierName ?? '',

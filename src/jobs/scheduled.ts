@@ -40,6 +40,25 @@ export async function scheduledProcessor(job: Job): Promise<unknown> {
         );
       }
       await enqueue(QUEUES.scheduled, 'cleanup', {}, `cleanup_${today}`);
+      // Extraction backlog: documents that were clean before a key was configured, or whose job was lost.
+      const backlog = await prisma.document.findMany({
+        where: {
+          extractionStatus: 'PENDING',
+          deletedAt: null,
+          file: { status: 'CLEAN' },
+          tenant: { status: 'ACTIVE' },
+        },
+        select: { id: true, tenantId: true },
+        take: 500,
+      });
+      for (const document of backlog) {
+        await enqueue(
+          QUEUES.files,
+          'extract',
+          { tenantId: document.tenantId, documentId: document.id },
+          `extract_${document.id}_${today}`,
+        );
+      }
       return { tenants: tenants.length };
     }
     case 'tenant-daily': {
