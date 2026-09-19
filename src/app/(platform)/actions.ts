@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { rateLimitByIp } from '@/lib/rate-limit';
 import { formValues, runAction, type ActionState } from '@/lib/action';
 import { requireUser } from '@/modules/auth/session';
 import {
@@ -24,6 +25,7 @@ export async function registerTenantAction(
   formData: FormData,
 ): Promise<ActionState> {
   return runAction(async () => {
+    await rateLimitByIp('signup');
     await registerTenant(registration(formData));
     return {
       success:

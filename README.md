@@ -8,12 +8,11 @@ summary and permission matrix are in [`docs/foundation.md`](docs/foundation.md);
 each decision is in [`docs/adr/`](docs/adr). Known shortcuts live in
 [`docs/tech-debt.md`](docs/tech-debt.md).
 
-**Status: phase 8 of 10.** Sign-up and onboarding, clients and tax obligations,
+**Status: phase 9 of 10.** Sign-up and onboarding, clients and tax obligations,
 document intake with a manager inbox, checklists with a traffic light, filings, daily reminders, messaging
 (also by replying to emails), a notification centre with web push, and deliveries with simple signature.
-White label is complete (logo, favicon, colours with contrast check, sender name, custom domain, sending domain, editable emails). AI extraction of invoices and the accounting export are in. Billing of the gestoría to its clients is in. Still to come:
-2FA, rate limiting, CSP and GDPR operations (9), PWA/offline and polish (10). **Do not onboard real gestorías
-before phase 9**: staff 2FA and rate limiting are not in place yet (TD-001, TD-002).
+White label is complete (logo, favicon, colours with contrast check, sender name, custom domain, sending domain, editable emails). AI extraction of invoices and the accounting export are in. Billing of the gestoría to its clients is in. Security (2FA, rate limiting, CSP, revocable sessions, support mode) and GDPR operations (agreements, export, erasure, retention, tenant purge) are in. Still to come:
+PWA/offline, help centre and polish (10).
 
 ## Requirements
 
@@ -241,6 +240,29 @@ the inbox and confirm it with `Enter`. Token usage is logged per tenant (Ajustes
 `fixtures/invoices/` holds the 10 synthetic invoices of the acceptance test (`npx tsx fixtures/generate.ts`
 regenerates them). `/panel/exportar` downloads a period as XLSX or CSV with the tenant's columns and decimal
 separator. See ADR 0025–0026.
+
+## Security and GDPR
+
+- **2FA** (TOTP + 10 single-use recovery codes) is mandatory for staff and superadmins and optional for
+  clients ("Tu cuenta"). After the password a session can only reach `/acceso/2fa` until the code is in.
+  A tenant admin resets a colleague's 2FA in Ajustes → Equipo. **Enforcement is off when `DEMO_MODE=true`**
+  so the demo users work: never run real tenants in demo mode. Secrets are encrypted with a key derived
+  from `AUTH_SECRET` — rotating it forces everybody to enrol again.
+- **Sessions**: listed and revocable in "Tu cuenta". **Rate limiting** in Redis (fails open) on login,
+  2FA, magic links, sign-up, upload initiation and webhooks. **Headers**: `src/middleware.ts` sets a
+  nonce-based CSP, HSTS and friends; the bucket (`S3_ENDPOINT`) is the only foreign origin allowed. The
+  reverse proxy must overwrite `X-Forwarded-For` and `X-Forwarded-Host`.
+- **Agreements**: the tenant admin (platform ↔ gestoría) and every client user (gestoría ↔ client) accept a
+  data processing agreement before entering; acceptances keep IP, user agent and the hash of the text.
+  The wording in `src/modules/legal/dpa.ts` is a template: **have it reviewed by your lawyer** and bump
+  `DPA_VERSION` when you change it (everybody is asked again).
+- **Ajustes → Datos y privacidad**: export everything (ZIP of CSVs + files, built by the worker, link by
+  email, 7 days), export or erase one client (30 days of grace, reversible; invoices are kept by law),
+  document retention (default 6 years) and cancelling the gestoría (portal closes, export by email,
+  physical purge of rows and bucket after 30 days). The daily `cleanup` job runs the sweep.
+- **Ajustes → Soporte**: opens a read-only, expiring, audited window for the platform's support team.
+
+See ADR 0028–0030.
 
 ## White label
 

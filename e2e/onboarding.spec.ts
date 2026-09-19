@@ -32,6 +32,13 @@ test('a new gestoría signs up, walks the wizard and ends with 20 invited client
   // Lands on the tenant's own host, one click from being logged in, and into the wizard.
   await expect(page).toHaveURL(new RegExp(`${slug}\\.localhost:3000/acceso/enlace`));
   await page.getByRole('button', { name: 'Entrar' }).click();
+
+  // First login: the data processing agreement with the platform has to be accepted (§4).
+  await expect(page).toHaveURL(/acceso\/condiciones/);
+  await expect(page.getByRole('document', { name: 'Contrato con la plataforma' })).toContainText(
+    'ENCARGO DE TRATAMIENTO',
+  );
+  await page.getByRole('button', { name: 'He leído y acepto' }).click();
   await expect(page).toHaveURL(/bienvenida/);
 
   await page.getByLabel('Razón social').fill('Gestoría E2E, S.L.');

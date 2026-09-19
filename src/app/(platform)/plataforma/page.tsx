@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { AppHeader } from '@/components/app-header';
 import { env } from '@/env';
 import { TENANT_STATUS } from '@/lib/labels';
@@ -57,7 +58,12 @@ export default async function PlatformHomePage() {
                   <td className="py-2 pr-4">{TENANT_STATUS[tenant.status]}</td>
                   <td className="py-2 pr-4">{tenant._count.users}</td>
                   <td className="py-2 pr-4">{tenant._count.clients}</td>
-                  <td className="py-2">
+                  <td className="flex flex-wrap items-center gap-3 py-2">
+                    {user.supportTenantIds.includes(tenant.id) && (
+                      <Link href={`/plataforma/soporte/${tenant.id}`} className="underline">
+                        Modo soporte
+                      </Link>
+                    )}
                     {(tenant.status === 'ACTIVE' || tenant.status === 'SUSPENDED') && (
                       <TenantStatusButton
                         tenantId={tenant.id}

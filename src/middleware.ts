@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { env } from '@/env';
 import { contentSecurityPolicy, STATIC_SECURITY_HEADERS } from '@/lib/security-headers';
 
-// Read straight from process.env: the validated `env` module is server-only Node code.
-const bucketOrigin = new URL(process.env.S3_ENDPOINT ?? 'http://localhost:9000').origin;
-const dev = process.env.NODE_ENV !== 'production';
+const bucketOrigin = new URL(env.S3_ENDPOINT).origin;
+const dev = env.NODE_ENV !== 'production';
 
 /** Security headers on every response. Next reads the nonce from the request CSP header. */
 export function middleware(request: NextRequest) {

@@ -78,3 +78,7 @@ export function tenantBaseUrl(tenant: {
   const protocol = hostname(env.APP_DOMAIN) === 'localhost' ? 'http' : 'https';
   return `${protocol}://${tenant.slug}.${env.APP_DOMAIN}`;
 }
+
+/** Origin of the platform host (sign-up, superadmin, export downloads of cancelled tenants). */
+export const platformBaseUrl = (): string =>
+  `${hostname(env.APP_DOMAIN) === 'localhost' ? 'http' : 'https'}://${env.APP_DOMAIN}`;

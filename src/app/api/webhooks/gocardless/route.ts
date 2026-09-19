@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { AppError } from '@/lib/errors';
+import { rateLimitByIp } from '@/lib/rate-limit';
 import { getPaymentProvider, handlePaymentWebhook } from '@/modules/billing/payments';
 
 /** Payment webhook (§6.11): signature verified by the provider adapter, events processed at most once. */
 export async function POST(request: Request) {
   try {
+    await rateLimitByIp('webhook');
     return NextResponse.json(
       await handlePaymentWebhook(
         getPaymentProvider('GOCARDLESS'),

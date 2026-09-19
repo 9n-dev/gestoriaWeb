@@ -14,6 +14,8 @@ const SECTIONS = [
   { href: '/panel/ajustes/documentos', label: 'Documentos' },
   { href: '/panel/ajustes/recordatorios', label: 'Recordatorios' },
   { href: '/panel/ajustes/plantillas', label: 'Plantillas' },
+  { href: '/panel/ajustes/datos', label: 'Datos y privacidad' },
+  { href: '/panel/ajustes/soporte', label: 'Soporte' },
 ];
 
 export default async function SettingsLayout({ children }: { children: ReactNode }) {

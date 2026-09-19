@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import { todayInMadrid } from '@/lib/dates';
 import { enqueue, QUEUES, scheduleRepeating } from '@/lib/queue';
 import { runTenantDaily } from '@/modules/obligations/reminders/service';
+import { runGdprSweep } from '@/modules/gdpr/erasure';
+import { runExport } from '@/modules/gdpr/export';
 import { runCleanup } from '@/modules/platform/cleanup';
 
 const tenantDailySchema = z.object({
@@ -21,7 +23,9 @@ export const registerSchedules = () =>
  *   never delays the others. The date travels in the payload: a retry after midnight still works
  *   for the morning it was scheduled for. Job ids make a double tick harmless.
  * - tenant-daily: reminders, notices and upkeep of one tenant. Idempotent through ReminderLog.
- * - cleanup: platform housekeeping.
+ * - cleanup: platform housekeeping plus the GDPR sweep (erasures and tenant purges that are due,
+ *   document retention, expired exports).
+ * - export: builds one data export (client or whole tenant) and emails the download link.
  */
 export async function scheduledProcessor(job: Job): Promise<unknown> {
   switch (job.name) {
@@ -66,7 +70,11 @@ export async function scheduledProcessor(job: Job): Promise<unknown> {
       return runTenantDaily(tenantId, today);
     }
     case 'cleanup':
-      return runCleanup();
+      return { ...(await runCleanup()), gdpr: await runGdprSweep() };
+    case 'export': {
+      const { exportId } = z.object({ exportId: z.string().min(1) }).parse(job.data);
+      return runExport(exportId);
+    }
     default:
       throw new Error(`unknown scheduled job "${job.name}"`);
   }
