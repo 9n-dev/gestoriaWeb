@@ -1,41 +1,35 @@
 /**
  * BullMQ worker process (Railway / Fly.io in production, `npm run worker` in development).
- * One file per job in this folder; payloads are validated with Zod before use.
+ * One file per queue in this folder; every payload is validated with Zod before use.
+ * Retries, backoff and dead letters are configured once, in lib/queue.
  */
-import convertHeic from 'heic-convert';
-import { z } from 'zod';
 import { createWorker, QUEUES } from '@/lib/queue';
-import { deleteObject } from '@/lib/storage/multipart';
-import { getObjectBytes, putObject } from '@/lib/storage/objects';
-import { getVirusScanner } from '@/modules/documents/antivirus';
-import { processFile, type ProcessingDeps } from '@/modules/documents/processing';
+import { filesProcessor } from './files';
+import { registerSchedules, scheduledProcessor } from './scheduled';
 
-const fileJobSchema = z.object({ tenantId: z.string().min(1), fileId: z.string().min(1) });
+const workers = [
+  createWorker(QUEUES.files, filesProcessor),
+  createWorker(QUEUES.scheduled, scheduledProcessor, 2),
+];
 
-const deps: ProcessingDeps = {
-  getBytes: getObjectBytes,
-  putBytes: putObject,
-  deleteObject,
-  scanner: getVirusScanner(),
-  convertHeicToJpeg: async (bytes) =>
-    new Uint8Array(await convertHeic({ buffer: bytes, format: 'JPEG', quality: 0.9 })),
-};
+for (const worker of workers) {
+  worker.on('failed', (job, error) =>
+    console.error(
+      `[worker] ${worker.name}/${job?.name} ${job?.id} failed (attempt ${job?.attemptsMade}):`,
+      error.message,
+    ),
+  );
+}
 
-const worker = createWorker(QUEUES.files, async (job) => {
-  const { tenantId, fileId } = fileJobSchema.parse(job.data);
-  await processFile(tenantId, fileId, deps);
-});
-
-worker.on('failed', (job, error) =>
-  console.error(
-    `[worker] ${job?.name} ${job?.id} failed (attempt ${job?.attemptsMade}):`,
-    error.message,
-  ),
-);
-worker.on('ready', () => console.info('[worker] ready: files'));
+Promise.all([...workers.map((worker) => worker.waitUntilReady()), registerSchedules()])
+  .then(() => console.info(`[worker] ready: ${workers.map((worker) => worker.name).join(', ')}`))
+  .catch((error) => {
+    console.error('[worker] could not start:', error);
+    process.exit(1);
+  });
 
 const shutdown = async () => {
-  await worker.close();
+  await Promise.all(workers.map((worker) => worker.close()));
   process.exit(0);
 };
 process.on('SIGTERM', shutdown);
