@@ -11,6 +11,7 @@ import {
 import { periodLabel } from '@/lib/labels';
 import { collectingPeriod } from '@/modules/checklists/light';
 import { checklistPeriodType, ensureChecklist, labelOf } from '@/modules/checklists/sync';
+import { announceDeliveries } from '@/modules/deliveries/service';
 import { notifyClientUsers, notifyUsers } from '@/modules/messaging/notifications';
 import { syncObligationsForClients } from '../service';
 import { reminderStep } from './planner';
@@ -78,6 +79,9 @@ export async function runTenantDaily(tenantId: string, today: IsoDate): Promise<
     select: { id: true, taxProfile: { select: { rules: true } } },
   });
   for (const client of clients) await ensureChecklist(tenantId, client.id, { today });
+
+  // Deliveries scheduled for a later day become visible, and are announced, on that day.
+  await announceDeliveries(tenantId);
 
   if (!settings.enabled) return summary;
   summary.deadlineReminders = await sendDeadlineReminders(

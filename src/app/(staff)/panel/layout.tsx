@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { AppHeader } from '@/components/app-header';
 import { requireArea } from '@/modules/auth/area';
 import { can } from '@/modules/auth/permissions';
+import { unreadCount } from '@/modules/messaging/notifications';
 import { getCurrentTenant } from '@/modules/tenants/current';
 
 export default async function StaffLayout({ children }: { children: ReactNode }) {
@@ -17,12 +18,13 @@ export default async function StaffLayout({ children }: { children: ReactNode })
     { href: '/panel/bandeja', label: 'Bandeja' },
     { href: '/panel/semaforo', label: 'Semáforo' },
     { href: '/panel/plazos', label: 'Plazos' },
+    { href: '/panel/mensajes', label: 'Mensajes' },
     { href: '/panel/clientes', label: 'Clientes' },
     ...(can(user, 'tenantSettings.manage') ? [{ href: '/panel/ajustes', label: 'Ajustes' }] : []),
   ];
   return (
     <>
-      <AppHeader tenant={tenant} userName={user.name} nav={nav} />
+      <AppHeader tenant={tenant} userName={user.name} nav={nav} unread={await unreadCount(user)} />
       <main className="mx-auto max-w-5xl p-4">{children}</main>
     </>
   );

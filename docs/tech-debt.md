@@ -28,7 +28,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-027 | 5 | **Resend inbound adapter is untested against a live account.** Signature verification and routing are covered; the attachment download endpoint in `inbound/resend.ts` was written from the published API and must be verified with the first real domain. |
 | TD-028 | 7 | **Extraction is manual.** Managers type the invoice fields; `extractionStatus` stays `PENDING` for the AI job of phase 7, which will also suggest the period from the invoice date (today the client or manager chooses it). |
 | TD-029 | 10 | **No offline upload queue.** Uploads retry and resume while the page is open; closing it loses the queue. IndexedDB + service worker arrive with the PWA. |
-| TD-030 | 5 | **Notifications have no UI**: rows are written and emails sent (`notifyUsers`), but there is no bell, counter or preferences yet. Inbound emails without attachments create messages nobody can read in the portal until the messaging phase. |
 | TD-031 | — | **Inbound attachments under 5 KB are skipped** as signature logos (`inbound/service.ts`). Replace with Content-Disposition/Content-ID once the provider exposes them. |
 | TD-033 | 10 | **The inbox loads at most 300 documents** and filters in one query without pagination. |
 | TD-034 | 9 | **`/api/webhooks/resend-inbound` and `/api/uploads` are not rate limited.** |
@@ -39,6 +38,12 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-039 | 9 | **Soft-deleted files keep their objects in the bucket** (replaced receipts, deleted permanent documents). Physical removal belongs to the retention policy. |
 | TD-040 | 10 | **No demo reset job yet** (04:00 re-seed when `DEMO_MODE`). |
 | TD-041 | — | **Failed-jobs panel has no pagination or bulk retry**: first 100 per queue. |
+| TD-042 | 9 | **Reply-by-email trusts the From address plus the thread token** (ADR 0022). Enforce DMARC on the inbound domain when it is connected. |
+| TD-043 | 10 | **Counters refresh on navigation only**: the bell and unread threads are server-rendered, there is no polling or live update. |
+| TD-044 | — | **Attachments are added after the message is sent** (15-minute window, author only). An attachment that fails leaves a message without it and a warning to the author. |
+| TD-045 | 6 | **Message and notification emails are plain text with fixed wording**; tenant-editable HTML templates arrive with white label. |
+| TD-046 | — | **Every staff participant of a thread is notified of each new message**; there is no per-thread mute. |
+| TD-047 | 9 | **The proxy in front of the app must overwrite `X-Forwarded-Host`** (tenant resolution reads it first). Vercel does; document it for any other deployment. |
 
 ## Closed
 
@@ -52,3 +57,4 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-021 | phase 4 | Manual obligations: create from the calendar, delete while untouched. |
 | TD-023 | phase 4 | December job: the daily tenant job syncs obligations on the 1st of every month. |
 | TD-032 | phase 4 | Expiry notices for permanent documents at 60, 30 and 7 days. |
+| TD-030 | phase 5 | Notifications without UI: bell with counter, notification centre, preferences and web push; inbound emails without attachments are readable as threads. |

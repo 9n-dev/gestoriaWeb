@@ -17,6 +17,15 @@ export type CurrentTenant = Prisma.TenantGetPayload<{ select: typeof currentTena
 
 const hostname = (host: string) => host.toLowerCase().replace(/:\d+$/, '');
 
+/**
+ * The host the person typed. `x-forwarded-host` wins over `host`: behind Vercel or a proxy, and in
+ * the internal request Next.js makes to render the target of a server-action redirect, `host` is
+ * the internal origin. A forged value only chooses which tenant's login page is shown: sessions
+ * are bound to their tenant, so it grants nothing. The proxy must overwrite this header.
+ */
+export const requestHost = (headers: Headers): string =>
+  headers.get('x-forwarded-host')?.split(',')[0]?.trim() || headers.get('host') || '';
+
 /** Pure: classifies a Host header against the platform's base domain. */
 export function parseHost(host: string, appDomain: string): HostTarget {
   const name = hostname(host);

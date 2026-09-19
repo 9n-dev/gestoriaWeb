@@ -6,12 +6,21 @@ import { CLIENT_STATUS, OBLIGATION_STATUS, USER_STATUS, periodLabel } from '@/li
 import { relativeDays, resultLabel } from '@/lib/labels-obligations';
 import { recentQuarters } from '@/lib/periods';
 import { getClientChecklist } from '@/modules/checklists/service';
-import { DOCUMENT_STATUS, PERMANENT_CATEGORY, fileStatusNote } from '@/lib/labels-documents';
+import {
+  DOCUMENT_STATUS,
+  PERMANENT_CATEGORY,
+  fileStatusNote,
+  DELIVERY_CATEGORY,
+} from '@/lib/labels-documents';
 import { requireArea } from '@/modules/auth/area';
 import { listClientUsers } from '@/modules/auth/invitations';
 import { can } from '@/modules/auth/permissions';
 import { listAssignableManagers, loadForStaff, resourceOf } from '@/modules/clients/service';
 import { listTaxProfiles } from '@/modules/clients/tax-profiles/service';
+import { NewThreadForm } from '@/components/messaging/new-thread-form';
+import { ThreadList } from '@/components/messaging/thread-list';
+import { deliveryHistory, listDeliveries } from '@/modules/deliveries/service';
+import { listThreads } from '@/modules/messaging/service';
 import { listInboundAddresses } from '@/modules/documents/inbound/service';
 import { listPermanentDocuments } from '@/modules/documents/permanent';
 import { listClientDocuments } from '@/modules/documents/service';
@@ -20,8 +29,10 @@ import { listClientObligations } from '@/modules/obligations/workflow';
 import { getCurrentTenant } from '@/modules/tenants/current';
 import { ChecklistSection } from './checklist-section';
 import { ObligationsSection } from './obligations-section';
+import { DeliveryUpload } from './delivery-upload';
 import { PermanentUpload } from './permanent-upload';
 import {
+  DeleteDeliveryButton,
   DeletePermanentButton,
   DeleteSection,
   InviteSection,
@@ -30,6 +41,12 @@ import {
   ResendButton,
   TaxProfileSection,
 } from './sections';
+
+const HISTORY_ACTION: Record<string, string> = {
+  'file.view': 'Visto',
+  'file.download': 'Descargado',
+  'delivery.sign': 'Firmado',
+};
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -49,16 +66,27 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const tenant = await getCurrentTenant();
   const today = todayInMadrid();
   const checklist = await getClientChecklist(user, id, { today });
-  const [obligations, documents, permanent, addresses, profiles, managers, users] =
-    await Promise.all([
-      listClientObligations(user, id),
-      listClientDocuments(user, id),
-      listPermanentDocuments(user, id),
-      tenant ? listInboundAddresses(tenant, [id]) : [],
-      listTaxProfiles(user),
-      can(user, 'client.assignManager', resource) ? listAssignableManagers(user) : null,
-      can(user, 'client.inviteUser', resource) ? listClientUsers(user, id) : null,
-    ]);
+  const [
+    obligations,
+    documents,
+    permanent,
+    deliveries,
+    threads,
+    addresses,
+    profiles,
+    managers,
+    users,
+  ] = await Promise.all([
+    listClientObligations(user, id),
+    listClientDocuments(user, id),
+    listPermanentDocuments(user, id),
+    listDeliveries(user, id),
+    listThreads(user, { clientId: id }),
+    tenant ? listInboundAddresses(tenant, [id]) : [],
+    listTaxProfiles(user),
+    can(user, 'client.assignManager', resource) ? listAssignableManagers(user) : null,
+    can(user, 'client.inviteUser', resource) ? listClientUsers(user, id) : null,
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -170,6 +198,88 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               </li>
             ))}
           </ul>
+        )}
+      </Section>
+
+      <Section title="Mensajes">
+        <ThreadList threads={threads.slice(0, 5)} basePath="/panel/mensajes" showClient={false} />
+        {can(user, 'thread.create', resource) && (
+          <details className="text-sm">
+            <summary className="cursor-pointer underline">Abrir una conversación nueva</summary>
+            <div className="mt-3">
+              <NewThreadForm clients={[{ id, name: client.legalName }]} staff />
+            </div>
+          </details>
+        )}
+      </Section>
+
+      <Section title="Entregas al cliente">
+        {deliveries.length > 0 && (
+          <ul className="flex flex-col text-sm">
+            {await Promise.all(
+              deliveries.map(async (delivery) => {
+                const history = can(user, 'delivery.viewHistory', resource)
+                  ? await deliveryHistory(user, delivery.id)
+                  : [];
+                return (
+                  <li key={delivery.id} className="border-b border-border py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-x-4">
+                      <span>
+                        <a
+                          href={`/api/files/${delivery.file.id}?inline`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline"
+                        >
+                          {delivery.title}
+                        </a>{' '}
+                        <span className="text-fg-muted">
+                          · {DELIVERY_CATEGORY[delivery.category]}
+                          {delivery.period && ` · ${periodLabel(delivery.period)}`} · visible desde
+                          el {formatLongDate(isoDate(delivery.visibleFrom))}
+                          {fileStatusNote(delivery.file.status) &&
+                            ` · ${fileStatusNote(delivery.file.status)}`}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-3">
+                        {delivery.requiresSignature &&
+                          (delivery.signedAt ? (
+                            <a
+                              href={`/api/files/${delivery.certificateFile?.id}`}
+                              className="underline"
+                            >
+                              Firmado · certificado
+                            </a>
+                          ) : (
+                            <span className="text-danger">Pendiente de firma</span>
+                          ))}
+                        {!delivery.signedAt && can(user, 'delivery.delete', resource) && (
+                          <DeleteDeliveryButton clientId={id} id={delivery.id} />
+                        )}
+                      </span>
+                    </div>
+                    {history.length > 0 && (
+                      <details className="mt-1 text-xs text-fg-muted">
+                        <summary className="cursor-pointer">Historial ({history.length})</summary>
+                        <ul className="mt-1 flex flex-col gap-0.5">
+                          {history.map((entry) => (
+                            <li key={entry.id}>
+                              {HISTORY_ACTION[entry.action] ?? entry.action} · {entry.actorName} ·{' '}
+                              {entry.at.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}
+                              {entry.ip && ` · ${entry.ip}`}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </li>
+                );
+              }),
+            )}
+          </ul>
+        )}
+        {can(user, 'delivery.create', resource) && (
+          <DeliveryUpload clientId={id} periods={recentQuarters(today, 6)} />
         )}
       </Section>
 

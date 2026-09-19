@@ -8,6 +8,7 @@ import { addDays, toDateOnly, todayInMadrid } from '../src/lib/dates';
 import { hashPassword } from '../src/modules/auth/password';
 import { putObject } from '../src/lib/storage/objects';
 import { ensureChecklist, refreshChecklist } from '../src/modules/checklists/sync';
+import { signDelivery } from '../src/modules/deliveries/service';
 import { DEFAULT_REJECTION_REASONS } from '../src/modules/documents/schema';
 import { syncObligationsForClient } from '../src/modules/obligations/service';
 import { invoicePdf, invoiceTotals, makePdf, type DemoInvoice } from './seed-files';
@@ -448,6 +449,204 @@ async function seedFiledObligations(tenantId: string, clientId: string, managerI
   }
 }
 
+// §7: conversations half-way, an open requirement from Hacienda, deliveries (one signed, one waiting).
+async function seedCommunication(
+  tenantId: string,
+  clientId: string,
+  managerId: string,
+  supervisorId: string,
+  clientUserId: string,
+) {
+  const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
+  const conversations = [
+    {
+      subject: 'Requerimiento de Hacienda: IVA del 2T 2026',
+      type: 'REQUIREMENT' as const,
+      messages: [
+        {
+          authorId: managerId,
+          hours: 70,
+          body: 'Hola, Marta: Hacienda nos pide justificar las facturas de gastos del segundo trimestre. Tenemos 10 días hábiles. ¿Puedes subirnos la factura del portátil y la del alquiler del coworking?',
+        },
+        {
+          authorId: clientUserId,
+          hours: 46,
+          body: 'La del coworking ya la subí ayer. La del portátil la tengo que pedir a la tienda, os la paso esta semana.',
+        },
+        {
+          authorId: managerId,
+          hours: 45,
+          body: 'Perfecto, la del coworking ya la tengo. Quedo pendiente de la otra.',
+        },
+      ],
+    },
+    {
+      subject: '¿Puedo deducir la cuota del gimnasio?',
+      type: 'GENERAL' as const,
+      messages: [
+        {
+          authorId: clientUserId,
+          hours: 5,
+          body: 'Buenas, como trabajo desde casa y paso muchas horas sentada, me he apuntado al gimnasio. ¿Me lo puedo deducir?',
+        },
+      ],
+    },
+    {
+      subject: 'Suele entregar tarde',
+      type: 'INTERNAL' as const,
+      messages: [
+        {
+          authorId: managerId,
+          hours: 30,
+          body: '@Salvador Ibáñez este trimestre vuelve a ir justa con las facturas. ¿Le adelantamos el recordatorio?',
+        },
+        {
+          authorId: supervisorId,
+          hours: 28,
+          body: 'Sí, y si el día 10 no ha llegado todo, llámala.',
+        },
+      ],
+    },
+  ];
+  for (const conversation of conversations) {
+    if (
+      await prisma.thread.findFirst({
+        where: { tenantId, clientId, subject: conversation.subject },
+      })
+    )
+      continue;
+    const last = hoursAgo(Math.min(...conversation.messages.map((m) => m.hours)));
+    const thread = await prisma.thread.create({
+      data: {
+        tenantId,
+        clientId,
+        subject: conversation.subject,
+        type: conversation.type,
+        createdById: conversation.messages[0]!.authorId,
+        lastMessageAt: last,
+        createdAt: hoursAgo(conversation.messages[0]!.hours),
+      },
+    });
+    for (const message of conversation.messages) {
+      await prisma.message.create({
+        data: {
+          tenantId,
+          threadId: thread.id,
+          authorId: message.authorId,
+          body: message.body,
+          createdAt: hoursAgo(message.hours),
+          mentionedUserIds: message.body.includes('@Salvador') ? [supervisorId] : [],
+        },
+      });
+    }
+    // The author of the last message has read it; the other side has not.
+    await prisma.threadRead.create({
+      data: {
+        tenantId,
+        threadId: thread.id,
+        userId: conversation.messages.at(-1)!.authorId,
+        lastReadAt: last,
+      },
+    });
+  }
+
+  for (const template of [
+    {
+      name: 'Reclamar documentación',
+      body: 'Hola, {{cliente}}:\n\nPara preparar tus impuestos antes del {{plazo}} todavía nos falta:\n{{pendientes}}\n\n¿Nos lo puedes subir esta semana? ¡Gracias!',
+    },
+    {
+      name: 'Acuse de recibo',
+      body: 'Recibido, {{cliente}}. Lo revisamos y te decimos algo si falta cualquier cosa.',
+    },
+  ]) {
+    if (
+      !(await prisma.template.findFirst({
+        where: { tenantId, kind: 'MESSAGE', name: template.name },
+      }))
+    ) {
+      await prisma.template.create({ data: { tenantId, kind: 'MESSAGE', ...template } });
+    }
+  }
+
+  const deliveries = [
+    {
+      slug: 'entrega-303-2t',
+      title: 'Modelo 303 presentado · 2T 2026',
+      category: 'FILED_FORM' as const,
+      requiresSignature: false,
+      sign: false,
+    },
+    {
+      slug: 'entrega-encargo',
+      title: 'Hoja de encargo profesional 2026',
+      category: 'LETTER' as const,
+      requiresSignature: true,
+      sign: true,
+    },
+    {
+      slug: 'entrega-cuentas',
+      title: 'Borrador de la declaración de la Renta 2025',
+      category: 'OTHER' as const,
+      requiresSignature: true,
+      sign: false,
+    },
+  ];
+  for (const demo of deliveries) {
+    const storageKey = `${tenantId}/demo/${demo.slug}.pdf`;
+    if (await prisma.storedFile.findUnique({ where: { storageKey } })) continue;
+    const bytes = makePdf([
+      demo.title,
+      '',
+      'Documento de demostración, sin validez.',
+      '',
+      'Gestoría Pérez & Asociados',
+    ]);
+    await putObject(storageKey, bytes, 'application/pdf');
+    const file = await prisma.storedFile.create({
+      data: {
+        tenantId,
+        kind: 'DELIVERY',
+        status: 'CLEAN',
+        storageKey,
+        originalName: `${demo.slug}.pdf`,
+        mimeType: 'application/pdf',
+        sizeBytes: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+        scannedAt: new Date(),
+      },
+    });
+    const delivery = await prisma.delivery.create({
+      data: {
+        tenantId,
+        clientId,
+        fileId: file.id,
+        title: demo.title,
+        category: demo.category,
+        requiresSignature: demo.requiresSignature,
+        uploadedById: managerId,
+        visibleFrom: hoursAgo(72),
+        notifiedAt: hoursAgo(72),
+      },
+    });
+    if (demo.sign) {
+      await signDelivery(
+        {
+          id: clientUserId,
+          tenantId,
+          role: 'CLIENT_USER',
+          status: 'ACTIVE',
+          clientIds: [clientId],
+          supportTenantIds: [],
+        },
+        delivery.id,
+        true,
+        { ip: '203.0.113.24', userAgent: 'Mozilla/5.0 (demo seed)' },
+      );
+    }
+  }
+}
+
 async function upsertUser(
   tenantId: string | null,
   email: string,
@@ -486,7 +685,13 @@ async function main() {
   });
 
   await upsertUser(perez.id, 'admin@demo.es', 'Amparo Pérez', 'TENANT_ADMIN', passwordHash);
-  await upsertUser(perez.id, 'supervisor@demo.es', 'Salvador Ibáñez', 'SUPERVISOR', passwordHash);
+  const supervisor = await upsertUser(
+    perez.id,
+    'supervisor@demo.es',
+    'Salvador Ibáñez',
+    'SUPERVISOR',
+    passwordHash,
+  );
   const managers = {
     gestor: await upsertUser(perez.id, 'gestor@demo.es', 'Lucía Ferrer', 'MANAGER', passwordHash),
     gestor2: await upsertUser(
@@ -550,6 +755,7 @@ async function main() {
   });
 
   await seedFiledObligations(perez.id, marta.id, managers.gestor.id);
+  await seedCommunication(perez.id, marta.id, managers.gestor.id, supervisor.id, cliente.id);
 
   // Checklists of the period being collected, ticked from the demo documents.
   for (const client of clients) {

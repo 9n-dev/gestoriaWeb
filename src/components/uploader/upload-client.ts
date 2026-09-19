@@ -16,7 +16,17 @@ export type UploadMeta =
       category: string;
       expiresAt: string;
     }
-  | { purpose: 'OBLIGATION_RECEIPT'; clientId: string; obligationId: string };
+  | { purpose: 'OBLIGATION_RECEIPT'; clientId: string; obligationId: string }
+  | { purpose: 'MESSAGE_ATTACHMENT'; clientId: string; messageId: string }
+  | {
+      purpose: 'DELIVERY';
+      clientId: string;
+      title: string;
+      category: string;
+      period: PeriodValue | null;
+      visibleFrom: string;
+      requiresSignature: boolean;
+    };
 export type PeriodValue = { year: number; type: 'MONTH' | 'QUARTER' | 'YEAR'; ordinal: number };
 type Ticket = { fileId: string; partSize: number; partCount: number; uploadedParts: number[] };
 

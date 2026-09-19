@@ -79,14 +79,15 @@ export function SelectField({
 export function TextareaField({
   label,
   name,
+  id = name,
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; name: string }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={name} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-medium">
         {label}
       </label>
-      <textarea id={name} name={name} rows={4} className={`${control} py-2`} {...props} />
+      <textarea id={id} name={name} rows={4} className={`${control} py-2`} {...props} />
     </div>
   );
 }

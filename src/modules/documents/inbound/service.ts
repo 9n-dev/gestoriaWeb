@@ -6,10 +6,12 @@ import { enqueue, QUEUES } from '@/lib/queue';
 import { putObject } from '@/lib/storage/objects';
 import { env } from '@/env';
 import { recordAudit } from '@/modules/audit/service';
+import { AppError } from '@/lib/errors';
+import { sendMessage } from '@/modules/messaging/service';
 import type { InboundEmail } from './provider';
 
 export type InboundResult = {
-  status: 'duplicate' | 'unknown-address' | 'processed';
+  status: 'duplicate' | 'unknown-address' | 'unknown-sender' | 'reply' | 'processed';
   documents: number;
   messages: number;
 };
@@ -89,6 +91,18 @@ export async function receiveInboundEmail(
       return { ...result, status: 'duplicate' };
     }
     throw error;
+  }
+
+  const replyToken = email.to
+    .map((recipient) => /^reply\+([a-z0-9]+)@/.exec(addressOf(recipient))?.[1])
+    .find(Boolean);
+  if (replyToken) {
+    const reply = await receiveReply(replyToken, email);
+    await prisma.webhookEvent.update({
+      where: { id: event.id },
+      data: { processedAt: new Date(), error: reply.status === 'reply' ? null : reply.status },
+    });
+    return reply;
   }
 
   const client = await findClient(email.to);
@@ -181,5 +195,88 @@ export async function receiveInboundEmail(
     diff: { from, documents: result.documents, messages: result.messages },
   });
   await prisma.webhookEvent.update({ where: { id: event.id }, data: { processedAt: new Date() } });
+  return result;
+}
+
+/** Everything from the first quoted line on is the previous conversation, not the answer. */
+export function stripQuotedReply(text: string): string {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const cut = lines.findIndex(
+    (line) =>
+      /^\s*>/.test(line) ||
+      /^\s*El .{5,200} escribió:\s*$/i.test(line) ||
+      /^\s*On .{5,200} wrote:\s*$/i.test(line) ||
+      /^\s*-{2,}\s*(Mensaje original|Original Message)/i.test(line) ||
+      /^\s*(De|From):\s.+@/i.test(line),
+  );
+  return (cut === -1 ? lines : lines.slice(0, cut)).join('\n').trim();
+}
+
+/**
+ * Reply to a thread notification (§6.8). Accepted only from an active user of the tenant who can
+ * read that thread: the same `sendMessage` permission path as the web, so a client can never
+ * write into an internal thread even with its token.
+ */
+async function receiveReply(replyToken: string, email: InboundEmail): Promise<InboundResult> {
+  const result: InboundResult = { status: 'reply', documents: 0, messages: 0 };
+  const thread = await prisma.thread.findFirst({
+    where: { replyToken, tenant: { status: 'ACTIVE' }, client: { deletedAt: null } },
+    select: { id: true, tenantId: true, clientId: true },
+  });
+  const from = addressOf(email.from);
+  const sender = thread
+    ? await tenantDb(thread.tenantId).user.findFirst({
+        where: { email: from, status: 'ACTIVE' },
+        include: { clientLinks: { select: { clientId: true } } },
+      })
+    : null;
+  if (!thread || !sender) return { ...result, status: 'unknown-sender' };
+
+  let messageId: string;
+  try {
+    const message = await sendMessage(
+      {
+        id: sender.id,
+        tenantId: thread.tenantId,
+        role: sender.role,
+        status: sender.status,
+        clientIds: sender.clientLinks.map((link) => link.clientId),
+        supportTenantIds: [],
+      },
+      thread.id,
+      stripQuotedReply(email.text) || '(mensaje sin texto)',
+      { source: 'EMAIL', senderEmail: from },
+    );
+    messageId = message.id;
+  } catch (error) {
+    if (error instanceof AppError) return { ...result, status: 'unknown-sender' };
+    throw error;
+  }
+  result.messages = 1;
+
+  const db = tenantDb(thread.tenantId);
+  for (const attachment of email.attachments) {
+    const bytes = await attachment.load();
+    const type = sniffDocumentType(bytes);
+    if (bytes.length < MIN_ATTACHMENT_BYTES || bytes.length > MAX_FILE_BYTES || !type) continue;
+    const storageKey = `${thread.tenantId}/clients/${thread.clientId}/${randomUUID()}`;
+    await putObject(storageKey, bytes, type.mime);
+    const file = await db.storedFile.create({
+      data: {
+        tenantId: thread.tenantId,
+        kind: 'MESSAGE_ATTACHMENT',
+        status: 'UPLOADED',
+        storageKey,
+        originalName: attachment.filename.slice(0, 200),
+        mimeType: type.mime,
+        sizeBytes: bytes.length,
+      },
+    });
+    await db.messageAttachment.create({
+      data: { tenantId: thread.tenantId, messageId, fileId: file.id },
+    });
+    await enqueue(QUEUES.files, 'process', { tenantId: thread.tenantId, fileId: file.id }, file.id);
+    result.documents++;
+  }
   return result;
 }

@@ -11,7 +11,7 @@ import {
   verifyPasswordLogin,
   type LoginMethod,
 } from '@/modules/auth/service';
-import { resolveTenant } from '@/modules/tenants/resolve';
+import { requestHost, resolveTenant } from '@/modules/tenants/resolve';
 import type { User as DbUser } from '@prisma/client';
 
 /** Carries the Spanish, user-safe message of an AppError through Auth.js to the login form. */
@@ -25,7 +25,7 @@ export class LoginError extends CredentialsSignin {
 const THIRTY_DAYS_S = 30 * 24 * 3600;
 
 function requestContext(request: Request) {
-  const host = request.headers.get('host') ?? '';
+  const host = requestHost(request.headers);
   return {
     host,
     meta: {

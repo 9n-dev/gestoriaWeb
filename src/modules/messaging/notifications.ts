@@ -1,7 +1,11 @@
-import type { NotificationType } from '@prisma/client';
+import type { Notification, NotificationType } from '@prisma/client';
+import { z } from 'zod';
 import { prisma, tenantDb } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
+import { AppError } from '@/lib/errors';
+import { assertCan, requireTenantId, type SessionUser } from '@/modules/auth/permissions';
 import { tenantBaseUrl } from '@/modules/tenants/resolve';
+import { getPushSender } from './push';
 
 export type NotificationPayload = {
   type: NotificationType;
@@ -10,12 +14,39 @@ export type NotificationPayload = {
   /** Path inside the portal, e.g. "/documentos". */
   link?: string;
   /** Templated email instead of the generic one built from title and body. */
-  email?: { subject: string; text: string; templateKey: string };
+  email?: { subject: string; text: string; templateKey: string; replyTo?: string };
 };
 
+const NOTIFICATION_TYPES = [
+  'DOCUMENT_RECEIVED',
+  'DOCUMENT_REJECTED',
+  'OBLIGATION_FILED',
+  'DEADLINE_REMINDER',
+  'MISSING_DOCS_REMINDER',
+  'NEW_MESSAGE',
+  'MENTION',
+  'DELIVERY_AVAILABLE',
+  'SIGNATURE_REQUESTED',
+  'INVOICE_ISSUED',
+  'INVOICE_OVERDUE',
+  'PERMANENT_DOC_EXPIRING',
+  'CLIENT_INACTIVE',
+  'SYSTEM',
+] as const satisfies readonly NotificationType[];
+
+/** `User.notificationPrefs`. In-app notifications cannot be turned off: they are the record. */
+export const notificationPrefsSchema = z.object({
+  email: z.boolean().catch(true),
+  push: z.boolean().catch(true),
+  mutedTypes: z.array(z.enum(NOTIFICATION_TYPES)).catch([]),
+});
+export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
+export const parseNotificationPrefs = (value: unknown): NotificationPrefs =>
+  notificationPrefsSchema.parse(value && typeof value === 'object' ? value : {});
+
 /**
- * In-app notification plus email for each user. The notification centre, web push and per-user
- * preferences arrive in phase 5; until then everything is sent through both channels.
+ * The single fan-out (§6.8): always an in-app notification; email and web push according to each
+ * user's preferences. A push that fails never breaks the caller.
  */
 export async function notifyUsers(
   tenantId: string,
@@ -26,9 +57,10 @@ export async function notifyUsers(
   const db = tenantDb(tenantId);
   const users = await db.user.findMany({
     where: { id: { in: userIds }, status: { not: 'DISABLED' } },
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, notificationPrefs: true, pushSubscriptions: true },
   });
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+  const portal = payload.link ? `${tenantBaseUrl(tenant)}${payload.link}` : undefined;
 
   await db.notification.createMany({
     data: users.map((user) => ({
@@ -41,35 +73,42 @@ export async function notifyUsers(
       link: payload.link,
     })),
   });
+
   for (const user of users) {
-    const portal = payload.link
-      ? `Entra en el portal para verlo: ${tenantBaseUrl(tenant)}${payload.link}`
-      : '';
-    if (payload.email) {
+    const prefs = parseNotificationPrefs(user.notificationPrefs);
+    if (prefs.mutedTypes.includes(payload.type)) continue;
+
+    if (prefs.email) {
+      const footer = portal ? `Entra en el portal para verlo: ${portal}` : '';
       await sendEmail({
         tenantId,
         to: user.email,
-        templateKey: payload.email.templateKey,
-        subject: `${payload.email.subject} · ${tenant.name}`,
-        text: [payload.email.text, portal].filter(Boolean).join('\n\n'),
+        replyTo: payload.email?.replyTo,
+        templateKey: payload.email?.templateKey ?? `notification.${payload.type.toLowerCase()}`,
+        subject: `${payload.email?.subject ?? payload.title} · ${tenant.name}`,
+        text: payload.email
+          ? [payload.email.text, footer].filter(Boolean).join('\n\n')
+          : [
+              `Hola, ${user.name}:`,
+              '',
+              payload.title,
+              ...(payload.body ? ['', payload.body] : []),
+              ...(footer ? ['', footer] : []),
+            ].join('\n'),
       });
-      continue;
     }
-    await sendEmail({
-      tenantId,
-      to: user.email,
-      templateKey: `notification.${payload.type.toLowerCase()}`,
-      subject: `${payload.title} · ${tenant.name}`,
-      text: [
-        `Hola, ${user.name}:`,
-        '',
-        payload.title,
-        ...(payload.body ? ['', payload.body] : []),
-        ...(payload.link
-          ? ['', `Entra en el portal para verlo: ${tenantBaseUrl(tenant)}${payload.link}`]
-          : []),
-      ].join('\n'),
-    });
+
+    if (prefs.push) {
+      for (const subscription of user.pushSubscriptions) {
+        const result = await getPushSender()
+          .send(subscription, { title: payload.title, body: payload.body, url: portal })
+          .catch((error: unknown) => {
+            console.error('[push] failed:', error instanceof Error ? error.message : error);
+            return 'sent' as const;
+          });
+        if (result === 'gone') await db.pushSubscription.delete({ where: { id: subscription.id } });
+      }
+    }
   }
 }
 
@@ -88,4 +127,87 @@ export async function notifyClientUsers(
     links.map((link) => link.userId),
     payload,
   );
+}
+
+// ─────────────────────────── Notification centre (own notifications only) ───────────────────────────
+
+const own = (user: SessionUser) => {
+  assertCan(user, 'notification.read', { tenantId: user.tenantId ?? '', ownerUserId: user.id });
+  return { db: tenantDb(requireTenantId(user)), where: { userId: user.id } };
+};
+
+export async function listNotifications(user: SessionUser, take = 50): Promise<Notification[]> {
+  const { db, where } = own(user);
+  return db.notification.findMany({ where, orderBy: { createdAt: 'desc' }, take });
+}
+
+export async function unreadCount(user: SessionUser): Promise<number> {
+  if (!user.tenantId) return 0;
+  const { db, where } = own(user);
+  return db.notification.count({ where: { ...where, readAt: null } });
+}
+
+export async function markNotificationRead(user: SessionUser, id: string): Promise<string | null> {
+  const { db, where } = own(user);
+  const notification = await db.notification.findFirst({ where: { ...where, id } });
+  if (!notification) throw new AppError('NOT_FOUND', 'No encontramos esa notificación.');
+  if (!notification.readAt)
+    await db.notification.update({ where: { id }, data: { readAt: new Date() } });
+  return notification.link;
+}
+
+export async function markAllNotificationsRead(user: SessionUser): Promise<void> {
+  const { db, where } = own(user);
+  await db.notification.updateMany({
+    where: { ...where, readAt: null },
+    data: { readAt: new Date() },
+  });
+}
+
+export async function getNotificationPrefs(user: SessionUser): Promise<NotificationPrefs> {
+  const row = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { notificationPrefs: true },
+  });
+  return parseNotificationPrefs(row.notificationPrefs);
+}
+
+export async function updateNotificationPrefs(user: SessionUser, input: unknown): Promise<void> {
+  assertCan(user, 'notification.managePrefs', {
+    tenantId: user.tenantId ?? '',
+    ownerUserId: user.id,
+  });
+  const prefs = z
+    .object({
+      email: z.boolean(),
+      push: z.boolean(),
+      mutedTypes: z.array(z.enum(NOTIFICATION_TYPES)),
+    })
+    .parse(input);
+  await prisma.user.update({ where: { id: user.id }, data: { notificationPrefs: prefs } });
+}
+
+const subscriptionSchema = z.object({
+  endpoint: z.url().max(1000),
+  keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(200) }),
+  userAgent: z.string().max(300).optional(),
+});
+
+/** Registers this browser for web push. The endpoint is unique: re-subscribing moves it to the current user. */
+export async function subscribePush(user: SessionUser, input: unknown): Promise<void> {
+  assertCan(user, 'push.subscribe', { tenantId: user.tenantId ?? '', ownerUserId: user.id });
+  const tenantId = requireTenantId(user);
+  const { endpoint, keys, userAgent } = subscriptionSchema.parse(input);
+  const data = { tenantId, userId: user.id, ...keys, userAgent };
+  await prisma.pushSubscription.upsert({
+    where: { endpoint },
+    create: { endpoint, ...data },
+    update: data,
+  });
+}
+
+export async function unsubscribePush(user: SessionUser, endpoint: string): Promise<void> {
+  await tenantDb(requireTenantId(user)).pushSubscription.deleteMany({
+    where: { endpoint, userId: user.id },
+  });
 }

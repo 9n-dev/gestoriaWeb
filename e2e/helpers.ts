@@ -9,7 +9,8 @@ export async function login(page: Page, email: string, password = 'demo1234') {
   await form.getByLabel('Correo electrónico').fill(email);
   await form.getByLabel('Contraseña').fill(password);
   await form.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page).not.toHaveURL(/acceso/);
+  // Wait for the whole redirect chain (/ → landing page): navigating earlier races with it.
+  await expect(page).toHaveURL(/\/(inicio|panel|plataforma|bienvenida)/);
 }
 
 export async function logout(page: Page) {

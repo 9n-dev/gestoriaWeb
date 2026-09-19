@@ -2,6 +2,7 @@
 
 import { Field } from '@/components/ui/field';
 import { ActionForm, SelectField, SubmitButton, TextareaField } from '@/components/ui/form';
+import { deleteDeliveryAction } from '@/app/actions/deliveries';
 import {
   assignManagerAction,
   assignTaxProfileAction,
@@ -142,6 +143,16 @@ export function DeleteSection({ clientId }: { clientId: string }) {
 export function DeletePermanentButton({ clientId, id }: { clientId: string; id: string }) {
   return (
     <ActionForm action={deletePermanentDocumentAction.bind(null, clientId, id)} className="flex">
+      <SubmitButton variant="ghost" pendingLabel="Eliminando…">
+        Eliminar
+      </SubmitButton>
+    </ActionForm>
+  );
+}
+
+export function DeleteDeliveryButton({ clientId, id }: { clientId: string; id: string }) {
+  return (
+    <ActionForm action={deleteDeliveryAction.bind(null, clientId, id)} className="flex">
       <SubmitButton variant="ghost" pendingLabel="Eliminando…">
         Eliminar
       </SubmitButton>

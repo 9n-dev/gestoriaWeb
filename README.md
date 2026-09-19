@@ -8,10 +8,12 @@ summary and permission matrix are in [`docs/foundation.md`](docs/foundation.md);
 each decision is in [`docs/adr/`](docs/adr). Known shortcuts live in
 [`docs/tech-debt.md`](docs/tech-debt.md).
 
-**Status: phase 4 of 10.** On top of sign-up, onboarding, clients, obligations and document intake: per-period
-checklists with a traffic light, filings with result and receipt, and a worker that every morning reminds
-clients of deadlines and of the exact documents they still owe. Messaging, deliveries, white label, AI
-extraction and billing arrive in later phases.
+**Status: phase 5 of 10 — minimum sellable product.** Sign-up and onboarding, clients and tax obligations,
+document intake with a manager inbox, checklists with a traffic light, filings, daily reminders, messaging
+(also by replying to emails), a notification centre with web push, and deliveries with simple signature.
+Still to come: white label and custom domains (6), AI extraction and accounting export (7), billing (8),
+2FA, rate limiting, CSP and GDPR operations (9), PWA/offline and polish (10). **Do not onboard real gestorías
+before phase 9**: staff 2FA and rate limiting are not in place yet (TD-001, TD-002).
 
 ## Requirements
 
@@ -88,6 +90,7 @@ with an incomplete configuration. Never read `process.env` elsewhere (ESLint enf
 | `CLAMAV_HOST`, `CLAMAV_PORT`                                                        | no       | clamd address. Empty = development fake scanner                                                                                  |
 | `RESEND_WEBHOOK_SECRET`                                                             | no       | Signing secret of the Resend inbound webhook. Empty = only the unsigned development payload is accepted, and never in production |
 | `INBOUND_EMAIL_DOMAIN`                                                              | no       | Domain of the per-client addresses `<slug>-<code>@…`. Default `docs.localhost`                                                   |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                             | no       | Web push. `npx web-push generate-vapid-keys`. Empty = pushes are only logged                                                     |
 | `DEMO_MODE`                                                                         | no       | `true` shows the demo banner and demo users on the login page                                                                    |
 | `SENTRY_DSN`                                                                        | no       | Not wired yet (TD-011)                                                                                                           |
 
@@ -196,6 +199,25 @@ To try the morning run without waiting for 08:00: `npm run job:daily -- 2026-10-
 today). It is the same idempotent code the scheduler runs; read the result in the `email_log` table.
 
 See ADR 0019–0020.
+
+## Messaging, notifications and deliveries
+
+- **Threads** per client: general, period, requirement (Hacienda) and internal. Internal threads, their
+  attachments and their notifications never reach a client user — enforced in `can()` (`resource.internal`),
+  not in the UI. `@Name Surname` mentions notify colleagues in internal threads. Canned replies with
+  `{{cliente}}`, `{{plazo}}`, `{{pendientes}}` are managed in Ajustes → Plantillas.
+- **Replies by email**: every notification email has `Reply-To: reply+<token>@INBOUND_EMAIL_DOMAIN`; the inbound
+  webhook turns the answer into a message, through the same permission checks as the web (ADR 0022).
+- **Notifications**: `notifyUsers()` is the only fan-out — in-app always, email and web push by user preference
+  (`/cuenta`). The bell in the header shows the unread count.
+- **Deliveries**: documents the gestoría hands to the client, optionally visible from a later date and
+  optionally requiring conformity. Signing stores timestamp, IP, browser and the SHA-256 of the file and
+  generates a PDF certificate (ADR 0023). Staff see who viewed, downloaded and signed.
+
+Behind a reverse proxy other than Vercel, make sure it **overwrites `X-Forwarded-Host`**: tenant resolution
+reads it before `Host` (TD-047).
+
+See ADR 0021–0023.
 
 ## Health
 
