@@ -65,6 +65,7 @@ ClamAV is heavy and not needed until phase 3: `docker compose --profile antiviru
 | `npm test`                          | Vitest: unit + integration, against the `gestoria_test` database (migrated automatically)                                                                                                |
 | `npm run worker`                    | BullMQ worker (`src/jobs/worker.ts`)                                                                                                                                                     |
 | `npm run job:daily -- [YYYY-MM-DD]` | Runs the morning job (reminders, notices, upkeep) for every tenant, now                                                                                                                  |
+| `npm run job:demo-reset`            | Deletes and re-seeds the demo tenants now (needs `DEMO_MODE=true`)                                                                                                                       |
 | `npm run test:e2e`                  | Playwright: onboarding, upload → book/reject by keyboard, 10 photos over 3G. Starts the app and a worker itself; needs `docker compose up -d` and `npx playwright install chromium` once |
 | `npm run db:migrate`                | `prisma migrate dev`                                                                                                                                                                     |
 | `npm run db:seed`                   | Idempotent demo seed                                                                                                                                                                     |
@@ -227,7 +228,8 @@ See ADR 0021–0023.
 
 Monthly fees per client are invoiced by the daily job on day 1. Invoices are numbered when issued, inside a
 transaction that locks the series row (no gaps, no duplicates), chained by hash (`InvoiceCompliance`, ready for
-Verifactu) and rendered to PDF with the legally required content. Cancelling issues a rectifying invoice. Clients
+Verifactu) and rendered to a designed PDF (tenant colour, VAT and IRPF breakdown, verification QR drawn as
+vectors, as many pages as the lines need) with the legally required content. Cancelling issues a rectifying invoice. Clients
 pay by card (Stripe Checkout) or SEPA debit (GoCardless) through `PaymentProvider`; webhooks
 (`/api/webhooks/stripe`, `/api/webhooks/gocardless`) verify the signature and process each event once. Unpaid
 invoices: overdue → reminders at 3/10/20 days → `DELINQUENT` at 30 (uploads allowed, downloads blocked except

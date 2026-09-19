@@ -35,7 +35,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-053 | — | **One VAT rate per document.** Invoices with several rates store totals and the main rate. |
 | TD-054 | — | **No "extract again" button** for a document that failed or was read badly; the manager edits the fields. |
 | TD-055 | — | **Export has no vendor presets** (A3, Sage, Contasol…): columns and separator only. |
-| TD-056 | — | **Invoice PDF is plain text** (`lib/pdf.ts`): legally complete, visually poor, and the verification QR is printed as a URL, not as an image. A designed template needs a PDF library (ADR first). |
 | TD-057 | — | **Stripe and GoCardless adapters are untested against live accounts**; signatures and idempotency are covered with the documented schemes. There is no SEPA mandate set-up flow: `Client.gocardlessMandateId` must be filled by hand. |
 | TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
 | TD-060 | — | **The new-invoice form takes three lines and one VAT rate**; the service accepts up to 50 lines with their own rates. |
@@ -54,6 +53,7 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-073 | — | **Lighthouse is run by hand** against the local production build (scores in the README), not in CI, and not on a throttled real device. |
 | TD-074 | — | **The demo reset only recreates `perez` and `otra`**: gestorías that visitors register in a demo environment stay (unverified ones are swept after 7 days). |
 | TD-075 | — | **Only server-side errors are reported** (`onRequestError`, actions, API routes, webhooks, final job failures). Browser errors are not. |
+| TD-076 | — | **The invoice PDF does not carry the tenant's logo**: `lib/pdf.ts` has no image support (JPEG would be easy, PNG with alpha is not). The header uses the legal name and the brand colour. Already issued invoices keep their old plain-text PDF: issued invoices are immutable. |
 
 ## Closed
 
@@ -84,3 +84,4 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-034 | phase 9 | `/api/uploads` (per user) and the three webhooks (per IP) are rate limited. |
 | TD-020 | post-launch | Team management: re-role, disable with mandatory hand-over of clients, reactivate; "Retirar acceso" for client users (ADR 0033). |
 | TD-058 | post-launch | Ajustes → Facturación: payment term, unpaid reminders, delinquency threshold and invoice series, validated and audited. |
+| TD-056 | post-launch | Designed invoice PDF on the extended own writer: brand colour, aligned amounts, VAT/IRPF breakdown, real vector QR, pagination, `€` rendered correctly (ADR 0034). |
