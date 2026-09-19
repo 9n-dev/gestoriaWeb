@@ -13,7 +13,7 @@ import { listInboundAddresses } from '@/modules/documents/inbound/service';
 import { listPermanentDocuments } from '@/modules/documents/permanent';
 import { listClientDocuments } from '@/modules/documents/service';
 import { modelName } from '@/modules/obligations/calendar';
-import { listClientObligations } from '@/modules/obligations/queries';
+import { listClientObligations } from '@/modules/obligations/workflow';
 import { getCurrentTenant } from '@/modules/tenants/current';
 import { PermanentUpload } from './permanent-upload';
 import {

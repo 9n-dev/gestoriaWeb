@@ -348,6 +348,12 @@ export async function fileAccessUrl(
     where: { id: fileId, deletedAt: null },
     include: {
       document: { select: { id: true, deletedAt: true } },
+      obligationReceipt: {
+        select: {
+          id: true,
+          client: { select: { id: true, assignedManagerId: true, status: true } },
+        },
+      },
       permanentDocument: {
         select: {
           id: true,
@@ -375,6 +381,18 @@ export async function fileAccessUrl(
     if (!can(user, 'permanentDocument.read', resource)) throw notFound();
     assertCan(user, 'permanentDocument.download', resource);
     entity = { name: 'PermanentDocument', id };
+  } else if (file?.obligationReceipt) {
+    const { client, id } = file.obligationReceipt;
+    const resource: Resource = {
+      tenantId,
+      clientId: client.id,
+      assignedManagerId: client.assignedManagerId,
+      clientStatus: client.status,
+      fileStatus: file.status,
+    };
+    if (!can(user, 'obligation.read', resource)) throw notFound();
+    assertCan(user, 'obligationReceipt.download', resource);
+    entity = { name: 'Obligation', id };
   } else {
     throw notFound();
   }

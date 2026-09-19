@@ -56,6 +56,10 @@ export const uploadRequestSchema = z.discriminatedUnion('purpose', [
     category: z.enum(PERMANENT_CATEGORIES).default('OTHER'),
     expiresAt: blankToNull(isoDate),
   }),
+  fileSchema.extend({
+    purpose: z.literal('OBLIGATION_RECEIPT'),
+    obligationId: z.string().min(1),
+  }),
 ]);
 export type UploadRequest = z.input<typeof uploadRequestSchema>;
 
