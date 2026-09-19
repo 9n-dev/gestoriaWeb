@@ -19,7 +19,8 @@
     "db:reset": "prisma migrate reset --force",
     "postinstall": "prisma generate",
     "worker": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/worker.ts",
-    "job:daily": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/run-daily.ts"
+    "job:daily": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/run-daily.ts",
+    "job:demo-reset": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/run-demo-reset.ts"
   },
   "prisma": {
     "seed": "tsx --conditions=react-server prisma/seed.ts"

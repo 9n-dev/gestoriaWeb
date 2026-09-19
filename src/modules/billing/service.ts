@@ -18,6 +18,7 @@ import { loadForStaff } from '@/modules/clients/service';
 import { notifyClientUsers } from '@/modules/messaging/notifications';
 import { hashChainCompliance, type InvoiceCompliance } from './compliance';
 import { invoicePdf, type Party } from './pdf';
+import { parseBranding } from '@/modules/tenants/schema';
 import { feeInputSchema, invoiceInputSchema, parseBillingSettings } from './schema';
 import { computeTotals, type LineInput } from './totals';
 
@@ -324,6 +325,7 @@ export async function issueInvoiceById(
         recipient,
         totals,
         paymentMethod: PAYMENT_METHOD[draft.paymentMethod ?? 'BANK_TRANSFER'],
+        brandColor: parseBranding(tenant.branding).primaryColor,
         ...seal,
       });
       const storageKey = `${tenantId}/invoices/${randomUUID()}.pdf`;
