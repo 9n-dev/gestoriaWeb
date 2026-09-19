@@ -203,7 +203,9 @@ export function can(user: SessionUser, action: Action, resource?: Resource): boo
 
   if (user.role === 'CLIENT_USER') {
     if (resource.internal) return false;
-    if (action.endsWith('.download') && resource.clientStatus === 'DELINQUENT') return false;
+    // DELINQUENT: uploads yes, downloads no (§6.11) — except the invoices they have to pay.
+    const blockedDownload = action.endsWith('.download') && action !== 'invoice.download';
+    if (blockedDownload && resource.clientStatus === 'DELINQUENT') return false;
     if (action === 'document.upload' && resource.periodClosed) return false;
     if (action === 'document.delete' && resource.documentStatus !== 'RECEIVED') return false;
     if (resource.visibleFrom && resource.visibleFrom > new Date()) return false;

@@ -14,6 +14,7 @@ import {
   type Resource,
   type SessionUser,
 } from '@/modules/auth/permissions';
+import { getInvoice, invoiceResource } from '@/modules/billing/service';
 import { deliveryResource, readableDelivery } from '@/modules/deliveries/access';
 import { notifyClientUsers } from '@/modules/messaging/notifications';
 import { readableThread, threadResource } from '@/modules/messaging/service';
@@ -352,6 +353,7 @@ export async function fileAccessUrl(
     where: { id: fileId, deletedAt: null },
     include: {
       document: { select: { id: true, deletedAt: true } },
+      invoicePdf: { select: { id: true } },
       messageAttachment: { select: { id: true, message: { select: { threadId: true } } } },
       delivery: { select: { id: true, deletedAt: true } },
       deliveryCertificate: { select: { id: true, deletedAt: true } },
@@ -405,6 +407,10 @@ export async function fileAccessUrl(
       fileStatus: file.status,
     });
     entity = { name: 'Delivery', id: delivery.id };
+  } else if (file?.invoicePdf) {
+    const invoice = await getInvoice(user, file.invoicePdf.id);
+    assertCan(user, 'invoice.download', { ...invoiceResource(invoice), fileStatus: file.status });
+    entity = { name: 'Invoice', id: invoice.id };
   } else if (file?.obligationReceipt) {
     const { client, id } = file.obligationReceipt;
     const resource: Resource = {

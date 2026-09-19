@@ -39,6 +39,12 @@ const schema = z.object({
     z.string().default('docs.localhost'),
   ),
 
+  // Payments. Empty = development providers (payments are simulated).
+  STRIPE_SECRET_KEY: optional(z.string()),
+  STRIPE_WEBHOOK_SECRET: optional(z.string()),
+  GOCARDLESS_ACCESS_TOKEN: optional(z.string()),
+  GOCARDLESS_WEBHOOK_SECRET: optional(z.string()),
+
   // AI extraction of invoice fields. Empty key = deterministic development extractor.
   ANTHROPIC_API_KEY: optional(z.string()),
   ANTHROPIC_MODEL: z.preprocess(
