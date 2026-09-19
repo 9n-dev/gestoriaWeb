@@ -12,6 +12,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    exclude: ['e2e/**', 'node_modules/**', '.next/**'],
     globalSetup: ['./tests/setup/global.ts'],
     setupFiles: ['./tests/setup/env.ts'],
     // Integration tests share one database.

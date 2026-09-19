@@ -27,6 +27,18 @@ const schema = z.object({
     z.string().default('no-reply@localhost'),
   ),
 
+  // Without CLAMAV_HOST the development fake scanner is used (flags only the EICAR test file).
+  CLAMAV_HOST: optional(z.string()),
+  CLAMAV_PORT: z.coerce.number().int().default(3310),
+
+  // Svix-style signing secret of the Resend inbound webhook ("whsec_…").
+  RESEND_WEBHOOK_SECRET: optional(z.string()),
+  // Domain of the per-client inbound addresses: <slug>-<code>@<INBOUND_EMAIL_DOMAIN>
+  INBOUND_EMAIL_DOMAIN: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().default('docs.localhost'),
+  ),
+
   DEMO_MODE: z.preprocess((v) => v === 'true' || v === '1', z.boolean()),
   SENTRY_DSN: optional(z.url()),
 });

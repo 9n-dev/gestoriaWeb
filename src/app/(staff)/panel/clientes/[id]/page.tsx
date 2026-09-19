@@ -3,14 +3,21 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { formatLongDate } from '@/lib/dates';
 import { CLIENT_STATUS, OBLIGATION_STATUS, USER_STATUS, periodLabel } from '@/lib/labels';
+import { DOCUMENT_STATUS, PERMANENT_CATEGORY, fileStatusNote } from '@/lib/labels-documents';
 import { requireArea } from '@/modules/auth/area';
 import { listClientUsers } from '@/modules/auth/invitations';
 import { can } from '@/modules/auth/permissions';
 import { listAssignableManagers, loadForStaff, resourceOf } from '@/modules/clients/service';
 import { listTaxProfiles } from '@/modules/clients/tax-profiles/service';
+import { listInboundAddresses } from '@/modules/documents/inbound/service';
+import { listPermanentDocuments } from '@/modules/documents/permanent';
+import { listClientDocuments } from '@/modules/documents/service';
 import { modelName } from '@/modules/obligations/calendar';
 import { listClientObligations } from '@/modules/obligations/queries';
+import { getCurrentTenant } from '@/modules/tenants/current';
+import { PermanentUpload } from './permanent-upload';
 import {
+  DeletePermanentButton,
   DeleteSection,
   InviteSection,
   ManagerSection,
@@ -34,12 +41,17 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const client = await loadForStaff(user, id).catch(() => notFound());
   const resource = resourceOf(client);
 
-  const [obligations, profiles, managers, users] = await Promise.all([
-    listClientObligations(user, id),
-    listTaxProfiles(user),
-    can(user, 'client.assignManager', resource) ? listAssignableManagers(user) : null,
-    can(user, 'client.inviteUser', resource) ? listClientUsers(user, id) : null,
-  ]);
+  const tenant = await getCurrentTenant();
+  const [obligations, documents, permanent, addresses, profiles, managers, users] =
+    await Promise.all([
+      listClientObligations(user, id),
+      listClientDocuments(user, id),
+      listPermanentDocuments(user, id),
+      tenant ? listInboundAddresses(tenant, [id]) : [],
+      listTaxProfiles(user),
+      can(user, 'client.assignManager', resource) ? listAssignableManagers(user) : null,
+      can(user, 'client.inviteUser', resource) ? listClientUsers(user, id) : null,
+    ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,6 +120,87 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             </tbody>
           </table>
         )}
+      </Section>
+
+      <Section title="Documentos">
+        <p className="text-sm text-fg-muted">
+          {documents.length === 0
+            ? 'Todavía no ha enviado documentos.'
+            : `${documents.length} documentos.`}{' '}
+          <Link href={`/panel/bandeja?cliente=${id}`} className="underline">
+            Ver los pendientes en la bandeja
+          </Link>
+          {addresses[0] && (
+            <>
+              {' '}
+              · Correo para enviar documentos:{' '}
+              <code className="break-all">{addresses[0].address}</code>
+            </>
+          )}
+        </p>
+        {documents.length > 0 && (
+          <ul className="flex flex-col text-sm">
+            {documents.slice(0, 10).map((document) => (
+              <li
+                key={document.id}
+                className="flex flex-wrap justify-between gap-x-4 border-b border-border py-1.5"
+              >
+                <a
+                  href={`/api/files/${document.file.id}?inline`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  {document.file.originalName}
+                </a>
+                <span className="text-fg-muted">
+                  {document.period && `${periodLabel(document.period)} · `}
+                  {fileStatusNote(document.file.status) ?? DOCUMENT_STATUS[document.status]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="Documentación permanente">
+        {permanent.length > 0 && (
+          <ul className="flex flex-col text-sm">
+            {permanent.map((document) => (
+              <li
+                key={document.id}
+                className="flex flex-wrap items-center justify-between gap-x-4 border-b border-border py-1.5"
+              >
+                <span>
+                  <a
+                    href={`/api/files/${document.file.id}?inline`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    {document.title}
+                  </a>{' '}
+                  <span className="text-fg-muted">
+                    · {PERMANENT_CATEGORY[document.category]}
+                    {fileStatusNote(document.file.status) &&
+                      ` · ${fileStatusNote(document.file.status)}`}
+                  </span>
+                </span>
+                <span className="flex items-center gap-3">
+                  <span className="text-fg-muted">
+                    {document.expiresAt
+                      ? `Caduca el ${formatLongDate(document.expiresAt)}`
+                      : 'Sin caducidad'}
+                  </span>
+                  {can(user, 'permanentDocument.manage', resource) && (
+                    <DeletePermanentButton clientId={id} id={document.id} />
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {can(user, 'permanentDocument.manage', resource) && <PermanentUpload clientId={id} />}
       </Section>
 
       {can(user, 'client.assignTaxProfile', resource) && (

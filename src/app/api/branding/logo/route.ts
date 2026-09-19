@@ -10,7 +10,7 @@ export async function GET() {
   const file =
     tenant && logoFileId
       ? await tenantDb(tenant.id).storedFile.findFirst({
-          where: { id: logoFileId, kind: 'BRANDING', deletedAt: null },
+          where: { id: logoFileId, kind: 'BRANDING', deletedAt: null, status: { not: 'INFECTED' } },
         })
       : null;
   if (!file) return new Response(null, { status: 404 });

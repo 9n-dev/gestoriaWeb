@@ -7,6 +7,7 @@ import { AppError } from '@/lib/errors';
 import { inviteClientUser, resendInvitation } from '@/modules/auth/invitations';
 import { requireUser } from '@/modules/auth/session';
 import { importClients } from '@/modules/clients/import';
+import { deletePermanentDocument } from '@/modules/documents/permanent';
 import {
   assignManager,
   assignTaxProfile,
@@ -150,5 +151,17 @@ export async function importClientsAction(
       success: `${report.imported} clientes importados${report.rejected.length ? `, ${report.rejected.length} filas con errores` : ''}.`,
       data: report,
     };
+  });
+}
+
+export async function deletePermanentDocumentAction(
+  clientId: string,
+  id: string,
+  _: ActionState,
+): Promise<ActionState> {
+  return runAction(async () => {
+    await deletePermanentDocument(await requireUser(), id);
+    revalidatePath(`/panel/clientes/${clientId}`);
+    return {};
   });
 }

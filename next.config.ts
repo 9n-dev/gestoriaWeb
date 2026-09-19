@@ -4,6 +4,8 @@ import './src/env';
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Loaded by Node at runtime instead of being bundled (dynamic requires, native bindings).
+  serverExternalPackages: ['bullmq', 'ioredis'],
 };
 
 export default nextConfig;

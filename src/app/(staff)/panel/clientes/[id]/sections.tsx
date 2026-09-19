@@ -6,6 +6,7 @@ import {
   assignManagerAction,
   assignTaxProfileAction,
   deleteClientAction,
+  deletePermanentDocumentAction,
   inviteClientUserAction,
   resendInvitationAction,
   updateNotesAction,
@@ -135,5 +136,15 @@ export function DeleteSection({ clientId }: { clientId: string }) {
         </SubmitButton>
       </ActionForm>
     </details>
+  );
+}
+
+export function DeletePermanentButton({ clientId, id }: { clientId: string; id: string }) {
+  return (
+    <ActionForm action={deletePermanentDocumentAction.bind(null, clientId, id)} className="flex">
+      <SubmitButton variant="ghost" pendingLabel="Eliminando…">
+        Eliminar
+      </SubmitButton>
+    </ActionForm>
   );
 }

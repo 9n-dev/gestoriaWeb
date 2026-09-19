@@ -22,6 +22,7 @@ import {
 
 const putObject = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/storage/objects', () => ({ putObject }));
+vi.mock('@/lib/queue', () => ({ enqueue: vi.fn(), QUEUES: { files: 'files' } }));
 
 const registration = (overrides = {}) => ({
   name: 'Gestoría Nueva',

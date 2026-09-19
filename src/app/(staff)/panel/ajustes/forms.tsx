@@ -138,9 +138,23 @@ export function BulkInviteForm({ pending }: { pending: number }) {
         );
       }}
     >
-      <SubmitButton pendingLabel="Enviando invitaciones…">
-        {pending === 1 ? 'Invitar a 1 cliente' : `Invitar a ${pending} clientes`}
-      </SubmitButton>
+      {/* Stays mounted when nobody is left to invite, so the result of the last run remains visible. */}
+      {pending > 0 ? (
+        <>
+          <p className="text-sm text-fg-muted">
+            Enviaremos a cada cliente con correo electrónico un enlace personal para entrar en tu
+            portal.
+          </p>
+          <SubmitButton pendingLabel="Enviando invitaciones…">
+            {pending === 1 ? 'Invitar a 1 cliente' : `Invitar a ${pending} clientes`}
+          </SubmitButton>
+        </>
+      ) : (
+        <p className="text-sm text-fg-muted">
+          No hay clientes pendientes de invitar. Podrás invitar a más desde la ficha de cada
+          cliente.
+        </p>
+      )}
     </ActionForm>
   );
 }

@@ -3,6 +3,7 @@ import { Prisma, type Tenant } from '@prisma/client';
 import { prisma, tenantDb } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
 import { AppError } from '@/lib/errors';
+import { enqueue, QUEUES } from '@/lib/queue';
 import { putObject } from '@/lib/storage/objects';
 import { env } from '@/env';
 import { recordAudit } from '@/modules/audit/service';
@@ -281,6 +282,8 @@ export async function updateBranding(user: SessionUser, input: BrandingInput): P
         sha256: createHash('sha256').update(bytes).digest('hex'),
       },
     });
+    // Same antivirus pipeline as client documents; an infected logo is removed by the worker.
+    await enqueue(QUEUES.files, 'process', { tenantId, fileId: file.id }, file.id);
     branding.logoFileId = file.id;
   }
 
