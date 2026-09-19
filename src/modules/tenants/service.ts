@@ -7,6 +7,7 @@ import { enqueue, QUEUES } from '@/lib/queue';
 import { putObject } from '@/lib/storage/objects';
 import { env } from '@/env';
 import { recordAudit } from '@/modules/audit/service';
+import { brandingWarnings, type ContrastWarning } from '@/modules/branding/contrast';
 import { assertCan, requireTenantId, type SessionUser } from '@/modules/auth/permissions';
 import { issueLoginToken } from '@/modules/auth/service';
 import { strictReminderSettingsSchema } from '@/modules/obligations/reminders/templates';
@@ -243,49 +244,66 @@ const IMAGE_SIGNATURES: Array<{
   },
 ];
 
+type ImageInput = { name: string; bytes: Uint8Array };
 export type BrandingInput = {
   primaryColor?: string;
   accentColor?: string;
-  logo?: { name: string; bytes: Uint8Array };
+  senderName?: string;
+  logo?: ImageInput;
+  favicon?: ImageInput;
 };
 
-/** Colors and logo. The image type is taken from its bytes, never from the file name. SVG is not accepted. */
-export async function updateBranding(user: SessionUser, input: BrandingInput): Promise<Branding> {
+/** Stores a branding image. Its type comes from the bytes, never from the file name; SVG is refused. */
+async function storeBrandingImage(
+  tenantId: string,
+  image: ImageInput,
+  label: string,
+): Promise<string> {
+  const { bytes } = image;
+  const type = IMAGE_SIGNATURES.find((signature) => signature.matches(bytes));
+  if (!type) throw new AppError('VALIDATION', `${label} debe ser una imagen PNG, JPG o WebP.`);
+  if (bytes.length > MAX_LOGO_BYTES)
+    throw new AppError('VALIDATION', `${label} no puede superar 1 MB.`);
+
+  const storageKey = `${tenantId}/branding/${randomUUID()}.${type.extension}`;
+  await putObject(storageKey, bytes, type.mime);
+  const file = await tenantDb(tenantId).storedFile.create({
+    data: {
+      tenantId,
+      kind: 'BRANDING',
+      status: 'UPLOADED',
+      storageKey,
+      originalName: image.name.slice(0, 200),
+      mimeType: type.mime,
+      sizeBytes: bytes.length,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    },
+  });
+  // Same antivirus pipeline as client documents; an infected image is removed by the worker.
+  await enqueue(QUEUES.files, 'process', { tenantId, fileId: file.id }, file.id);
+  return file.id;
+}
+
+/** Colours, logo, favicon and sender name (§6.12). Contrast problems are reported, not blocked. */
+export async function updateBranding(
+  user: SessionUser,
+  input: BrandingInput,
+): Promise<Branding & { warnings: ContrastWarning[] }> {
   assertCan(user, 'branding.manage');
   const tenantId = requireTenantId(user);
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
   const branding: Branding = {
     ...parseBranding(tenant.branding),
-    ...brandingSchema.pick({ primaryColor: true, accentColor: true }).parse({
+    ...brandingSchema.pick({ primaryColor: true, accentColor: true, senderName: true }).parse({
       primaryColor: input.primaryColor || undefined,
       accentColor: input.accentColor || undefined,
+      senderName: input.senderName?.trim() || undefined,
     }),
   };
-
-  if (input.logo && input.logo.bytes.length > 0) {
-    const { bytes } = input.logo;
-    const type = IMAGE_SIGNATURES.find((signature) => signature.matches(bytes));
-    if (!type) throw new AppError('VALIDATION', 'El logo debe ser una imagen PNG, JPG o WebP.');
-    if (bytes.length > MAX_LOGO_BYTES)
-      throw new AppError('VALIDATION', 'El logo no puede superar 1 MB.');
-
-    const storageKey = `${tenantId}/branding/${randomUUID()}.${type.extension}`;
-    await putObject(storageKey, bytes, type.mime);
-    const file = await tenantDb(tenantId).storedFile.create({
-      data: {
-        tenantId,
-        kind: 'BRANDING',
-        status: 'UPLOADED',
-        storageKey,
-        originalName: input.logo.name.slice(0, 200),
-        mimeType: type.mime,
-        sizeBytes: bytes.length,
-        sha256: createHash('sha256').update(bytes).digest('hex'),
-      },
-    });
-    // Same antivirus pipeline as client documents; an infected logo is removed by the worker.
-    await enqueue(QUEUES.files, 'process', { tenantId, fileId: file.id }, file.id);
-    branding.logoFileId = file.id;
+  if (input.logo?.bytes.length)
+    branding.logoFileId = await storeBrandingImage(tenantId, input.logo, 'El logo');
+  if (input.favicon?.bytes.length) {
+    branding.faviconFileId = await storeBrandingImage(tenantId, input.favicon, 'El icono');
   }
 
   await prisma.tenant.update({ where: { id: tenantId }, data: { branding } });
@@ -297,7 +315,7 @@ export async function updateBranding(user: SessionUser, input: BrandingInput): P
     entityId: tenantId,
     diff: branding,
   });
-  return branding;
+  return { ...branding, warnings: brandingWarnings(branding) };
 }
 
 /** Reminder offsets, on/off switch and inactivity threshold (§6.6, §6.9). */

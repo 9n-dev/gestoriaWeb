@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/email';
 import { AppError } from '@/lib/errors';
 import { recordAudit } from '@/modules/audit/service';
 import { loadForStaff, resourceOf } from '@/modules/clients/service';
+import { renderTemplate, resolveTemplate } from '@/modules/obligations/reminders/templates';
 import { tenantBaseUrl } from '@/modules/tenants/resolve';
 import { hashPassword } from './password';
 import { assertCan, requireTenantId, type SessionUser } from './permissions';
@@ -34,21 +35,18 @@ async function sendInvitation(
 ): Promise<void> {
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
   const token = await issueLoginToken(tenantId, invited.email, INVITATION_MS);
+  const template = await resolveTemplate(tenantId, 'auth.invitation');
+  const variables = {
+    nombre: invited.name,
+    gestoria: tenant.name,
+    enlace: `${tenantBaseUrl(tenant)}/acceso/enlace?token=${token}`,
+  };
   await sendEmail({
     tenantId,
     to: invited.email,
     templateKey: 'auth.invitation',
-    subject: `${tenant.name} te invita a su portal de clientes`,
-    text: [
-      `Hola, ${invited.name}:`,
-      '',
-      `${tenant.name} te ha dado acceso a su portal. Desde él podrás enviar tu documentación, ver tus plazos y hablar con tu gestor.`,
-      '',
-      'Entra con este enlace (válido durante 7 días):',
-      `${tenantBaseUrl(tenant)}/acceso/enlace?token=${token}`,
-      '',
-      'Después podrás crear una contraseña o seguir entrando con enlaces como este.',
-    ].join('\n'),
+    subject: renderTemplate(template.subject, variables),
+    text: renderTemplate(template.body, variables),
   });
   await recordAudit({
     tenantId,

@@ -7,6 +7,8 @@ import { can } from '@/modules/auth/permissions';
 const SECTIONS = [
   { href: '/panel/ajustes/gestoria', label: 'Gestoría' },
   { href: '/panel/ajustes/marca', label: 'Marca' },
+  { href: '/panel/ajustes/dominio', label: 'Dominio' },
+  { href: '/panel/ajustes/emails', label: 'Emails' },
   { href: '/panel/ajustes/equipo', label: 'Equipo' },
   { href: '/panel/ajustes/perfiles-fiscales', label: 'Perfiles fiscales' },
   { href: '/panel/ajustes/documentos', label: 'Documentos' },

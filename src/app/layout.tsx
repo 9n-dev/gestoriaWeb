@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { CSSProperties, ReactNode } from 'react';
 import { getCurrentTenant } from '@/modules/tenants/current';
+import { readableForeground } from '@/modules/branding/contrast';
 import { parseBranding } from '@/modules/tenants/schema';
 import './globals.css';
 
@@ -9,6 +10,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: tenant ? `${tenant.name} · Portal de clientes` : 'Portal de clientes',
     description: 'Portal de clientes de tu gestoría',
+    icons: parseBranding(tenant?.branding).faviconFileId
+      ? { icon: '/api/branding/favicon' }
+      : undefined,
   };
 }
 
@@ -16,9 +20,14 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const branding = parseBranding((await getCurrentTenant())?.branding);
-  // Phase 6 adds contrast validation and dark-mode variants of the tenant colors.
+  // Button text follows the brand colour so it stays legible whatever the tenant picks.
   const colors = {
-    ...(branding.primaryColor ? { '--color-primary': branding.primaryColor } : {}),
+    ...(branding.primaryColor
+      ? {
+          '--color-primary': branding.primaryColor,
+          '--color-primary-fg': readableForeground(branding.primaryColor),
+        }
+      : {}),
     ...(branding.accentColor ? { '--color-accent': branding.accentColor } : {}),
   } as CSSProperties;
 

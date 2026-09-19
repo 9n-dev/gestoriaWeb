@@ -17,6 +17,7 @@ export default async function BrandingPage() {
       <BrandingForm
         primaryColor={branding.primaryColor ?? '#1d4ed8'}
         accentColor={branding.accentColor ?? '#0f766e'}
+        senderName={branding.senderName ?? ''}
       />
     </div>
   );

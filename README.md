@@ -8,10 +8,10 @@ summary and permission matrix are in [`docs/foundation.md`](docs/foundation.md);
 each decision is in [`docs/adr/`](docs/adr). Known shortcuts live in
 [`docs/tech-debt.md`](docs/tech-debt.md).
 
-**Status: phase 5 of 10 — minimum sellable product.** Sign-up and onboarding, clients and tax obligations,
+**Status: phase 6 of 10.** Sign-up and onboarding, clients and tax obligations,
 document intake with a manager inbox, checklists with a traffic light, filings, daily reminders, messaging
 (also by replying to emails), a notification centre with web push, and deliveries with simple signature.
-Still to come: white label and custom domains (6), AI extraction and accounting export (7), billing (8),
+White label is complete (logo, favicon, colours with contrast check, sender name, custom domain, sending domain, editable emails). Still to come: AI extraction and accounting export (7), billing (8),
 2FA, rate limiting, CSP and GDPR operations (9), PWA/offline and polish (10). **Do not onboard real gestorías
 before phase 9**: staff 2FA and rate limiting are not in place yet (TD-001, TD-002).
 
@@ -90,6 +90,7 @@ with an incomplete configuration. Never read `process.env` elsewhere (ESLint enf
 | `CLAMAV_HOST`, `CLAMAV_PORT`                                                        | no       | clamd address. Empty = development fake scanner                                                                                  |
 | `RESEND_WEBHOOK_SECRET`                                                             | no       | Signing secret of the Resend inbound webhook. Empty = only the unsigned development payload is accepted, and never in production |
 | `INBOUND_EMAIL_DOMAIN`                                                              | no       | Domain of the per-client addresses `<slug>-<code>@…`. Default `docs.localhost`                                                   |
+| `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `PLATFORM_CNAME_TARGET`                        | no       | Attach verified custom domains to the Vercel project (SSL). Empty = verified by TXT, attach by hand                              |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                             | no       | Web push. `npx web-push generate-vapid-keys`. Empty = pushes are only logged                                                     |
 | `DEMO_MODE`                                                                         | no       | `true` shows the demo banner and demo users on the login page                                                                    |
 | `SENTRY_DSN`                                                                        | no       | Not wired yet (TD-011)                                                                                                           |
@@ -218,6 +219,14 @@ Behind a reverse proxy other than Vercel, make sure it **overwrites `X-Forwarded
 reads it before `Host` (TD-047).
 
 See ADR 0021–0023.
+
+## White label
+
+Ajustes → Marca / Dominio / Emails. A custom domain only resolves to its tenant after our DNS lookup finds the
+TXT token; then it is attached to the deployment (`DomainProvider`). The sending domain shows SPF, DKIM and DMARC
+with their status (`EmailDomainProvider`); once verified, emails leave from `no-reply@<domain>`. Every system
+email has editable wording with a preview and is sent with a branded HTML version. `lib/i18n` holds the Spanish
+dictionary and empty `ca`, `gl`, `eu`, `en` ones that fall back to it. See ADR 0024.
 
 ## Health
 

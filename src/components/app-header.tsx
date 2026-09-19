@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { logoutAction } from '@/app/(auth)/acceso/actions';
 import { TenantLogo } from '@/components/tenant-logo';
 import { Button } from '@/components/ui/button';
+import { t, type Locale } from '@/lib/i18n';
 import type { CurrentTenant } from '@/modules/tenants/resolve';
 
 export type NavItem = { href: string; label: string };
@@ -11,17 +12,19 @@ export function AppHeader({
   userName,
   nav = [],
   unread = 0,
+  locale = 'es',
 }: {
   tenant: CurrentTenant | null;
   userName: string;
   nav?: NavItem[];
   /** Unread notifications, shown on the bell. */
   unread?: number;
+  locale?: Locale;
 }) {
   return (
     <header className="border-b border-border">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-        <Link href="/" aria-label="Inicio">
+        <Link href="/" aria-label={t('common.home', locale)}>
           <TenantLogo tenant={tenant} />
         </Link>
         {nav.length > 0 && (
@@ -40,7 +43,11 @@ export function AppHeader({
         <div className="flex items-center gap-1">
           <Link
             href="/notificaciones"
-            aria-label={unread ? `Notificaciones: ${unread} sin leer` : 'Notificaciones'}
+            aria-label={
+              unread
+                ? t('common.notificationsUnread', locale, { count: unread })
+                : t('common.notifications', locale)
+            }
             className="relative rounded-md px-3 py-2 text-sm hover:bg-surface-muted"
           >
             <span aria-hidden>🔔</span>
@@ -61,7 +68,7 @@ export function AppHeader({
           </Link>
           <form action={logoutAction}>
             <Button type="submit" variant="ghost">
-              Cerrar sesión
+              {t('common.logout', locale)}
             </Button>
           </form>
         </div>

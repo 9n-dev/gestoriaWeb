@@ -41,9 +41,15 @@ export type TemplateKey =
   | 'reminder.deadline.2d'
   | 'reminder.deadline.0d'
   | 'reminder.inactivity'
-  | 'reminder.permanent_expiry';
+  | 'reminder.permanent_expiry'
+  | 'auth.magic_link'
+  | 'auth.invitation';
 
-/** Variables: {{cliente}} {{gestoria}} {{plazo}} {{dias}} {{modelos}} {{pendientes}} {{documento}} {{clientes}} */
+/**
+ * Default wording of every editable email. Tenants override subject and body (Ajustes → Emails).
+ * Variables: {{cliente}} {{gestoria}} {{plazo}} {{dias}} {{modelos}} {{pendientes}} {{documento}}
+ * {{clientes}} {{nombre}} {{enlace}}
+ */
 export const DEFAULT_TEMPLATES: Record<TemplateKey, { subject: string; body: string }> = {
   'reminder.deadline.15d': {
     subject: 'Se acerca el plazo del {{plazo}}',
@@ -64,6 +70,14 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, { subject: string; body: str
   'reminder.inactivity': {
     subject: 'Clientes sin actividad',
     body: 'Hola:\n\nEstos clientes llevan más de {{dias}} días sin enviar nada ni escribir:\n\n{{clientes}}\n\nQuizá convenga llamarles.',
+  },
+  'auth.magic_link': {
+    subject: 'Tu enlace de acceso a {{gestoria}}',
+    body: 'Hola, {{nombre}}:\n\nUsa este enlace para entrar. Caduca en 15 minutos y solo funciona una vez.\n\n{{enlace}}\n\nSi no lo has pedido tú, puedes ignorar este mensaje.',
+  },
+  'auth.invitation': {
+    subject: '{{gestoria}} te invita a su portal de clientes',
+    body: 'Hola, {{nombre}}:\n\n{{gestoria}} te ha dado acceso a su portal. Desde él podrás enviar tu documentación, ver tus plazos y hablar con tu gestor.\n\nEntra con este enlace (válido durante 7 días):\n{{enlace}}\n\nDespués podrás crear una contraseña o seguir entrando con enlaces como este.',
   },
   'reminder.permanent_expiry': {
     subject: '«{{documento}}» caduca el {{plazo}}',

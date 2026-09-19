@@ -76,11 +76,20 @@ export type TenantProfileInput = z.input<typeof tenantProfileSchema>;
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color no válido.');
 
-/** Shape of `Tenant.branding`. Contrast validation, favicon and sender name arrive in phase 6. */
+/** Shape of `Tenant.branding`. */
 export const brandingSchema = z.object({
   primaryColor: hexColor.optional(),
   accentColor: hexColor.optional(),
   logoFileId: z.string().optional(),
+  faviconFileId: z.string().optional(),
+  /** Display name of the From address of every email. Defaults to the tenant name. */
+  senderName: z
+    .string()
+    .trim()
+    .min(2)
+    .max(80)
+    .regex(/^[^<>"\r\n]+$/, 'El nombre no puede contener < > ni comillas.')
+    .optional(),
 });
 export type Branding = z.infer<typeof brandingSchema>;
 

@@ -52,23 +52,52 @@ export function TenantProfileForm({ tenant }: { tenant: TenantProfile }) {
 export function BrandingForm({
   primaryColor,
   accentColor,
+  senderName,
 }: {
   primaryColor: string;
   accentColor: string;
+  senderName: string;
 }) {
   return (
-    <ActionForm action={updateBrandingAction} className="flex max-w-2xl flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="logo" className="text-sm font-medium">
-          Logo (PNG, JPG o WebP, máximo 1 MB)
-        </label>
-        <input
-          id="logo"
-          name="logo"
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          className="text-sm"
-        />
+    <ActionForm
+      action={updateBrandingAction}
+      className="flex max-w-2xl flex-col gap-4"
+      renderResult={(state) => {
+        const warnings = (state.data as string[] | undefined) ?? [];
+        return warnings.length ? (
+          <ul className="mt-2 list-disc pl-5 text-fg">
+            {warnings.map((warning) => (
+              <li key={warning}>⚠️ {warning}</li>
+            ))}
+          </ul>
+        ) : null;
+      }}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="logo" className="text-sm font-medium">
+            Logo (PNG, JPG o WebP, máximo 1 MB)
+          </label>
+          <input
+            id="logo"
+            name="logo"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="favicon" className="text-sm font-medium">
+            Icono de la pestaña (cuadrado, PNG)
+          </label>
+          <input
+            id="favicon"
+            name="favicon"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="text-sm"
+          />
+        </div>
       </div>
       <div className="flex flex-wrap gap-6">
         <div className="flex flex-col gap-1.5">
@@ -96,6 +125,16 @@ export function BrandingForm({
           />
         </div>
       </div>
+      <Field
+        label="Nombre del remitente de los emails"
+        name="senderName"
+        defaultValue={senderName}
+        placeholder="Gestoría Pérez"
+      />
+      <p className="text-sm text-fg-muted">
+        Comprobamos el contraste de tus colores al guardar y te avisamos si algo va a costar de
+        leer.
+      </p>
       <SubmitButton>Guardar marca</SubmitButton>
     </ActionForm>
   );
