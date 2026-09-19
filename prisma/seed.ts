@@ -668,8 +668,12 @@ async function main() {
 
   const perez = await prisma.tenant.upsert({
     where: { slug: 'perez' },
-    update: { status: 'ACTIVE' },
+    update: {
+      status: 'ACTIVE',
+      branding: { primaryColor: '#0f4c81', accentColor: '#0f766e', senderName: 'Gestoría Pérez' },
+    },
     create: {
+      branding: { primaryColor: '#0f4c81', accentColor: '#0f766e', senderName: 'Gestoría Pérez' },
       slug: 'perez',
       name: 'Gestoría Pérez & Asociados',
       legalName: 'Pérez & Asociados Gestoría, S.L.',

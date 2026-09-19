@@ -1,5 +1,6 @@
 import { env } from '@/env';
 import { prisma } from '@/lib/db';
+import { renderEmailHtml } from './html';
 
 export type EmailMessage = {
   /** null for platform emails. */
@@ -17,8 +18,56 @@ export type EmailMessage = {
  * Sends through Resend when RESEND_API_KEY is set; otherwise stores the email in `email_log`
  * and prints it (development fallback). Every email is logged either way.
  */
-export async function sendEmail(message: EmailMessage): Promise<void> {
-  const from = message.from ?? env.EMAIL_FROM;
+/**
+ * White label (§6.12): the tenant's sender name, its verified sending domain when it has one, and
+ * the branded HTML version of the text.
+ */
+async function brandFor(tenantId: string | null) {
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          name: true,
+          slug: true,
+          branding: true,
+          sendingDomain: true,
+          sendingDomainVerifiedAt: true,
+          customDomain: true,
+          customDomainVerifiedAt: true,
+        },
+      })
+    : null;
+  if (!tenant) return null;
+  const branding = (tenant.branding ?? {}) as {
+    primaryColor?: string;
+    senderName?: string;
+    logoFileId?: string;
+  };
+  const address =
+    tenant.sendingDomain && tenant.sendingDomainVerifiedAt
+      ? `no-reply@${tenant.sendingDomain}`
+      : env.EMAIL_FROM;
+  const origin =
+    tenant.customDomain && tenant.customDomainVerifiedAt
+      ? `https://${tenant.customDomain}`
+      : `${env.APP_DOMAIN.startsWith('localhost') ? 'http' : 'https'}://${tenant.slug}.${env.APP_DOMAIN}`;
+  return {
+    from: `"${(branding.senderName ?? tenant.name).replace(/["<>]/g, '')}" <${address}>`,
+    html: {
+      tenantName: tenant.name,
+      primaryColor: branding.primaryColor ?? '#1d4ed8',
+      logoUrl: branding.logoFileId ? `${origin}/api/branding/logo` : undefined,
+    },
+  };
+}
+
+export async function sendEmail(input: EmailMessage): Promise<void> {
+  const brand = await brandFor(input.tenantId);
+  const message = {
+    ...input,
+    html: input.html ?? (brand ? renderEmailHtml(input.text, brand.html) : undefined),
+  };
+  const from = message.from ?? brand?.from ?? env.EMAIL_FROM;
   const log = await prisma.emailLog.create({
     data: {
       tenantId: message.tenantId,

@@ -5,6 +5,11 @@ import { sendEmail } from '@/lib/email';
 import { AppError } from '@/lib/errors';
 import type { RequestMeta } from '@/lib/request';
 import { recordAudit } from '@/modules/audit/service';
+import {
+  DEFAULT_TEMPLATES,
+  renderTemplate,
+  resolveTemplate,
+} from '@/modules/obligations/reminders/templates';
 import { hashPassword, verifyPassword } from './password';
 import type { SessionUser } from './permissions';
 import { emailSchema } from './schema';
@@ -209,21 +214,20 @@ export async function requestMagicLink(
   if (!user) return;
 
   const token = await issueLoginToken(tenantId, email, MAGIC_LINK_MS);
-  const link = `${baseUrl}/acceso/enlace?token=${token}`;
+  const variables = {
+    nombre: user.name,
+    gestoria: tenant?.name ?? 'la plataforma',
+    enlace: `${baseUrl}/acceso/enlace?token=${token}`,
+  };
+  const template = tenantId
+    ? await resolveTemplate(tenantId, 'auth.magic_link')
+    : DEFAULT_TEMPLATES['auth.magic_link'];
   await sendEmail({
     tenantId,
     to: email,
     templateKey: 'auth.magic_link',
-    subject: `Tu enlace de acceso a ${tenant?.name ?? 'la plataforma'}`,
-    text: [
-      `Hola, ${user.name}:`,
-      '',
-      'Usa este enlace para entrar. Caduca en 15 minutos y solo funciona una vez.',
-      '',
-      link,
-      '',
-      'Si no lo has pedido tú, puedes ignorar este mensaje.',
-    ].join('\n'),
+    subject: renderTemplate(template.subject, variables),
+    text: renderTemplate(template.body, variables),
   });
 }
 

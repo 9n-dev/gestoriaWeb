@@ -33,23 +33,26 @@ export async function updateTenantProfileAction(
   });
 }
 
+const imageFrom = async (value: FormDataEntryValue | null) =>
+  value instanceof File && value.size > 0
+    ? { name: value.name, bytes: new Uint8Array(await value.arrayBuffer()) }
+    : undefined;
+
 export async function updateBrandingAction(
   _: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   return runAction(async () => {
-    const { primaryColor, accentColor } = formValues(formData);
-    const logo = formData.get('logo');
-    await updateBranding(await requireUser(), {
+    const { primaryColor, accentColor, senderName } = formValues(formData);
+    const { warnings } = await updateBranding(await requireUser(), {
       primaryColor,
       accentColor,
-      logo:
-        logo instanceof File && logo.size > 0
-          ? { name: logo.name, bytes: new Uint8Array(await logo.arrayBuffer()) }
-          : undefined,
+      senderName,
+      logo: await imageFrom(formData.get('logo')),
+      favicon: await imageFrom(formData.get('favicon')),
     });
     revalidatePath('/', 'layout');
-    return { success: 'Marca guardada.' };
+    return { success: 'Marca guardada.', data: warnings.map((warning) => warning.message) };
   });
 }
 

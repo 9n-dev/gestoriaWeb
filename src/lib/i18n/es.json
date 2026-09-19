@@ -1,0 +1,19 @@
+{
+  "common.logout": "Cerrar sesión",
+  "common.notifications": "Notificaciones",
+  "common.notificationsUnread": "Notificaciones: {{count}} sin leer",
+  "common.home": "Inicio",
+  "nav.client.home": "Inicio",
+  "nav.client.upload": "Subir",
+  "nav.client.documents": "Mis documentos",
+  "nav.client.deadlines": "Plazos",
+  "nav.client.messages": "Mensajes",
+  "nav.client.deliveries": "Entregas",
+  "nav.staff.summary": "Resumen",
+  "nav.staff.inbox": "Bandeja",
+  "nav.staff.trafficLight": "Semáforo",
+  "nav.staff.deadlines": "Plazos",
+  "nav.staff.messages": "Mensajes",
+  "nav.staff.clients": "Clientes",
+  "nav.staff.settings": "Ajustes"
+}
