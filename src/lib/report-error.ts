@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { env } from '@/env';
 
 type Context = { where: string; tags?: Record<string, string> };
@@ -19,7 +18,7 @@ export function buildEnvelope(
   dsn: string,
   now = new Date(),
 ): string {
-  const eventId = randomUUID().replace(/-/g, '');
+  const eventId = crypto.randomUUID().replace(/-/g, '');
   const failure = error instanceof Error ? error : new Error(String(error));
   const event = {
     event_id: eventId,

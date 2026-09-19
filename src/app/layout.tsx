@@ -13,7 +13,10 @@ export async function generateMetadata(): Promise<Metadata> {
     title: tenant ? `${tenant.name} · Portal de clientes` : 'Portal de clientes',
     description: 'Portal de clientes de tu gestoría',
     icons: {
-      ...(parseBranding(tenant?.branding).faviconFileId ? { icon: '/api/branding/favicon' } : {}),
+      // Without an uploaded favicon the generated icon does the job (and nobody asks for /favicon.ico).
+      icon: parseBranding(tenant?.branding).faviconFileId
+        ? '/api/branding/favicon'
+        : '/api/branding/icon/192',
       apple: '/api/branding/icon/180',
     },
     appleWebApp: { capable: true, title: tenant?.name ?? 'Portal de clientes' },
