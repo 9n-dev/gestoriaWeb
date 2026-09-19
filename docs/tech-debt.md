@@ -53,7 +53,7 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-073 | — | **Lighthouse is run by hand** against the local production build (scores in the README), not in CI, and not on a throttled real device. |
 | TD-074 | — | **The demo reset only recreates `perez` and `otra`**: gestorías that visitors register in a demo environment stay (unverified ones are swept after 7 days). |
 | TD-075 | — | **Only server-side errors are reported** (`onRequestError`, actions, API routes, webhooks, final job failures). Browser errors are not. |
-| TD-076 | — | **The invoice PDF does not carry the tenant's logo**: `lib/pdf.ts` has no image support (JPEG would be easy, PNG with alpha is not). The header uses the legal name and the brand colour. Already issued invoices keep their old plain-text PDF: issued invoices are immutable. |
+| TD-077 | — | **A WebP logo does not reach the invoice PDF** (Node has no WebP decoder; `sharp` would be a native dependency). Also skipped: interlaced PNGs, CMYK JPEGs, images over 4 MP, and single-colour `tRNS` transparency on non-palette PNGs. The branding form says so; the invoice falls back to the name. The signature certificate still has no logo. |
 
 ## Closed
 
@@ -85,3 +85,4 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-020 | post-launch | Team management: re-role, disable with mandatory hand-over of clients, reactivate; "Retirar acceso" for client users (ADR 0033). |
 | TD-058 | post-launch | Ajustes → Facturación: payment term, unpaid reminders, delinquency threshold and invoice series, validated and audited. |
 | TD-056 | post-launch | Designed invoice PDF on the extended own writer: brand colour, aligned amounts, VAT/IRPF breakdown, real vector QR, pagination, `€` rendered correctly (ADR 0034). |
+| TD-076 | post-launch | Tenant logo on the invoice PDF: own PNG decoder (all colour types, alpha as soft mask) and JPEG pass-through; only antivirus-clean files; never blocks issuing (ADR 0035). |

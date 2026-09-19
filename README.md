@@ -228,7 +228,7 @@ See ADR 0021–0023.
 
 Monthly fees per client are invoiced by the daily job on day 1. Invoices are numbered when issued, inside a
 transaction that locks the series row (no gaps, no duplicates), chained by hash (`InvoiceCompliance`, ready for
-Verifactu) and rendered to a designed PDF (tenant colour, VAT and IRPF breakdown, verification QR drawn as
+Verifactu) and rendered to a designed PDF (tenant logo when it is a PNG or JPEG, tenant colour, VAT and IRPF breakdown, verification QR drawn as
 vectors, as many pages as the lines need) with the legally required content. Cancelling issues a rectifying invoice. Clients
 pay by card (Stripe Checkout) or SEPA debit (GoCardless) through `PaymentProvider`; webhooks
 (`/api/webhooks/stripe`, `/api/webhooks/gocardless`) verify the signature and process each event once. Unpaid
