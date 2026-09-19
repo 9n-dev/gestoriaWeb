@@ -1,5 +1,6 @@
 import type { Job } from 'bullmq';
 import { z } from 'zod';
+import { env } from '@/env';
 import { prisma } from '@/lib/db';
 import { todayInMadrid } from '@/lib/dates';
 import { enqueue, QUEUES, scheduleRepeating } from '@/lib/queue';
@@ -7,6 +8,7 @@ import { runTenantDaily } from '@/modules/obligations/reminders/service';
 import { runGdprSweep } from '@/modules/gdpr/erasure';
 import { runExport } from '@/modules/gdpr/export';
 import { runCleanup } from '@/modules/platform/cleanup';
+import { resetDemo } from '@/modules/platform/demo';
 
 const tenantDailySchema = z.object({
   tenantId: z.string().min(1),
@@ -14,8 +16,13 @@ const tenantDailySchema = z.object({
 });
 
 /** 08:00 Europe/Madrid, every day (§6.9). Registered on every worker start; upserts are harmless. */
-export const registerSchedules = () =>
-  scheduleRepeating(QUEUES.scheduled, 'daily-0800', '0 8 * * *', 'daily');
+export async function registerSchedules(): Promise<void> {
+  await scheduleRepeating(QUEUES.scheduled, 'daily-0800', '0 8 * * *', 'daily');
+  // §7: demo environments start every day from the seed.
+  if (env.DEMO_MODE) {
+    await scheduleRepeating(QUEUES.scheduled, 'demo-reset-0400', '0 4 * * *', 'demo-reset');
+  }
+}
 
 /**
  * Queue "scheduled".
@@ -25,6 +32,7 @@ export const registerSchedules = () =>
  * - tenant-daily: reminders, notices and upkeep of one tenant. Idempotent through ReminderLog.
  * - cleanup: platform housekeeping plus the GDPR sweep (erasures and tenant purges that are due,
  *   document retention, expired exports).
+ * - demo-reset: 04:00, only with DEMO_MODE: wipes the demo tenants and seeds them again.
  * - export: builds one data export (client or whole tenant) and emails the download link.
  */
 export async function scheduledProcessor(job: Job): Promise<unknown> {
@@ -71,6 +79,8 @@ export async function scheduledProcessor(job: Job): Promise<unknown> {
     }
     case 'cleanup':
       return { ...(await runCleanup()), gdpr: await runGdprSweep() };
+    case 'demo-reset':
+      return resetDemo();
     case 'export': {
       const { exportId } = z.object({ exportId: z.string().min(1) }).parse(job.data);
       return runExport(exportId);

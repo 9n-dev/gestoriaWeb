@@ -1,9 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DOCUMENT_TYPE_LABELS } from '@/modules/clients/tax-profiles/labels';
 import { parsePeriodValue, type PeriodOption } from '@/lib/periods';
+import { queueAdd, queueAll, queueRemove, queueSetFileId } from './offline-queue';
 import { resumeUpload, uploadFile, UploadError, type UploadMeta } from './upload-client';
 
 const ACCEPT = 'image/jpeg,image/png,image/heic,image/heif,application/pdf,.heic,.heif';
@@ -13,6 +14,9 @@ const CONCURRENCY = 3;
 type Item = {
   key: number;
   file: File;
+  meta: UploadMeta;
+  /** Row in the IndexedDB queue; missing when the browser refuses storage (private windows). */
+  queueId?: number;
   fileId?: string;
   progress: number;
   state: 'waiting' | 'uploading' | 'done' | 'error';
@@ -43,48 +47,94 @@ export function Uploader({
   const nextKey = useRef(0);
   const active = useRef(0);
   const queue = useRef<Item[]>([]);
+  const retryable = useRef<Item[]>([]);
+  const [online, setOnline] = useState(true);
 
   const patch = (key: number, changes: Partial<Item>) =>
     setItems((current) =>
       current.map((item) => (item.key === key ? { ...item, ...changes } : item)),
     );
 
-  const pump = useCallback(
-    (meta: UploadMeta) => {
-      while (active.current < CONCURRENCY && queue.current.length > 0) {
-        const item = queue.current.shift()!;
-        active.current++;
-        patch(item.key, { state: 'uploading', error: undefined });
-        const handlers = {
-          onProgress: (progress: number) => patch(item.key, { progress }),
-          onFileId: (fileId: string) => {
-            item.fileId = fileId;
-            patch(item.key, { fileId });
-          },
-        };
-        (item.fileId
-          ? resumeUpload(item.file, item.fileId, handlers)
-          : uploadFile(item.file, meta, handlers)
-        )
-          .then(() => {
-            patch(item.key, { state: 'done', progress: 1 });
-            router.refresh();
-          })
-          .catch((error: unknown) =>
-            patch(item.key, {
-              state: 'error',
-              error: error instanceof UploadError ? error.message : 'Se ha cortado la conexión.',
-              canRetry: !(error instanceof UploadError && error.permanent),
-            }),
-          )
-          .finally(() => {
-            active.current--;
-            pump(meta);
+  // IndexedDB is a safety net: if it fails, the upload still goes ahead.
+  const forget = (item: Item) => {
+    if (item.queueId !== undefined) queueRemove(item.queueId).catch(() => {});
+  };
+
+  const pump = useCallback(() => {
+    // Offline: everything waits in the queue; the `online` event pumps again.
+    while (navigator.onLine && active.current < CONCURRENCY && queue.current.length > 0) {
+      const item = queue.current.shift()!;
+      active.current++;
+      patch(item.key, { state: 'uploading', error: undefined });
+      const handlers = {
+        onProgress: (progress: number) => patch(item.key, { progress }),
+        onFileId: (fileId: string) => {
+          item.fileId = fileId;
+          patch(item.key, { fileId });
+          if (item.queueId !== undefined) queueSetFileId(item.queueId, fileId).catch(() => {});
+        },
+      };
+      (item.fileId
+        ? resumeUpload(item.file, item.fileId, handlers)
+        : uploadFile(item.file, item.meta, handlers)
+      )
+        .then(() => {
+          forget(item);
+          patch(item.key, { state: 'done', progress: 1 });
+          router.refresh();
+        })
+        .catch((error: unknown) => {
+          const permanent = error instanceof UploadError && error.permanent;
+          if (permanent) forget(item);
+          patch(item.key, {
+            state: 'error',
+            error: error instanceof UploadError ? error.message : 'Se ha cortado la conexión.',
+            canRetry: !permanent,
           });
-      }
-    },
-    [router],
-  );
+          // Connection errors go back to the queue on their own when the network returns.
+          if (!permanent) retryable.current.push(item);
+        })
+        .finally(() => {
+          active.current--;
+          pump();
+        });
+    }
+  }, [router]);
+
+  // Files left over from a previous visit (closed tab, no coverage), and the way back online.
+  useEffect(() => {
+    queueAll()
+      .then((entries) => {
+        if (entries.length === 0) return;
+        const restored: Item[] = entries.map((entry) => ({
+          key: nextKey.current++,
+          file: entry.file,
+          meta: entry.meta,
+          queueId: entry.id,
+          fileId: entry.fileId,
+          progress: 0,
+          state: 'waiting',
+        }));
+        setItems((current) => [...restored, ...current]);
+        queue.current.push(...restored);
+        pump();
+      })
+      .catch(() => {});
+
+    const onOnline = () => {
+      setOnline(true);
+      queue.current.push(...retryable.current.splice(0));
+      pump();
+    };
+    const onOffline = () => setOnline(false);
+    setOnline(navigator.onLine);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [pump]);
 
   const meta = (): UploadMeta => ({
     purpose: 'DOCUMENT',
@@ -93,23 +143,30 @@ export function Uploader({
     period: parsePeriodValue(period),
   });
 
-  const add = (files: FileList | null) => {
+  const add = async (files: FileList | null) => {
+    const current = meta();
     const added: Item[] = [...(files ?? [])].map((file) => ({
       key: nextKey.current++,
       file,
+      meta: current,
       progress: 0,
       ...(file.size > MAX_BYTES
         ? { state: 'error' as const, error: 'Supera el máximo de 20 MB.' }
         : { state: 'waiting' as const }),
     }));
-    setItems((current) => [...added, ...current]);
-    queue.current.push(...added.filter((item) => item.state === 'waiting'));
-    pump(meta());
+    setItems((existing) => [...added, ...existing]);
+    const valid = added.filter((item) => item.state === 'waiting');
+    for (const item of valid) {
+      item.queueId = await queueAdd({ file: item.file, meta: item.meta }).catch(() => undefined);
+    }
+    queue.current.push(...valid);
+    pump();
   };
 
   const retry = (item: Item) => {
+    retryable.current = retryable.current.filter((other) => other !== item);
     queue.current.push(item);
-    pump(meta());
+    pump();
   };
 
   const pending = items.filter(
@@ -176,8 +233,9 @@ export function Uploader({
             capture="environment"
             className="sr-only"
             onChange={(event) => {
-              add(event.target.files);
-              event.target.value = '';
+              void add(event.target.files).then(() => {
+                event.target.value = '';
+              });
             }}
           />
         </label>
@@ -190,8 +248,9 @@ export function Uploader({
             className="sr-only"
             data-testid="file-input"
             onChange={(event) => {
-              add(event.target.files);
-              event.target.value = '';
+              void add(event.target.files).then(() => {
+                event.target.value = '';
+              });
             }}
           />
         </label>
@@ -202,9 +261,11 @@ export function Uploader({
 
       <p aria-live="polite" className="text-sm font-medium">
         {items.length > 0 &&
-          (pending > 0
-            ? `Subiendo ${pending} de ${items.length}… No cierres esta página.`
-            : `${done} de ${items.length} documentos enviados.`)}
+          (!online && pending > 0
+            ? `Sin conexión: ${pending} ${pending === 1 ? 'documento guardado' : 'documentos guardados'} en este dispositivo. Se enviarán solos cuando vuelva la conexión.`
+            : pending > 0
+              ? `Subiendo ${pending} de ${items.length}… No cierres esta página.`
+              : `${done} de ${items.length} documentos enviados.`)}
       </p>
 
       <ul className="flex flex-col gap-2">
@@ -213,7 +274,7 @@ export function Uploader({
             <div className="flex items-center justify-between gap-3">
               <span className="truncate">{item.file.name}</span>
               <span className={item.state === 'error' ? 'text-danger' : 'text-fg-muted'}>
-                {item.state === 'waiting' && 'En cola'}
+                {item.state === 'waiting' && (online ? 'En cola' : 'Pendiente de conexión')}
                 {item.state === 'uploading' && `${Math.round(item.progress * 100)} %`}
                 {item.state === 'done' && 'Enviado'}
                 {item.state === 'error' && item.error}

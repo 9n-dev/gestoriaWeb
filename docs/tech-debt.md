@@ -8,7 +8,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 |---|---|---|
 | TD-009 | — | **`tenantDb` does not rewrite nested writes or `include` filters** (ADR 0005). Rule: ids coming from the user are first loaded through `tenantDb`. Optional hardening: Postgres RLS. |
 | TD-010 | — | **Down migrations are manual.** Prisma has no native rollback: each migration folder carries a hand-written `down.sql`. CI does not verify them. |
-| TD-011 | 10 | **Sentry not wired.** `SENTRY_DSN` is validated in `env.ts` but unused; errors go to stdout. |
 | TD-014 | — | **Prisma 6 → 8 upgrade** once v8 is stable (ADR 0011). ESLint 9 and TypeScript 5.9 are pinned for `eslint-config-next@15` compatibility. |
 | TD-015 | — | **MinIO image comes from quay.io**: MinIO stopped publishing to Docker Hub. Revisit if quay.io images stop too (any S3-compatible server works). |
 | TD-016 | — | **Client import is CSV only** (ADR 0014). XLSX needs a large dependency. |
@@ -16,23 +15,21 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-019 | — | **K/L/M NIFs are accepted by format only** (`lib/tax-id.ts`); their control character is not checked. |
 | TD-020 | 9 | **Staff cannot be disabled, re-roled or removed from the UI**, and client users cannot be unlinked (`client.removeUser` exists in the matrix, no service yet). Invitation and listing are done. |
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
-| TD-026 | 10 | **Client list filters in memory** (`q` search over the scoped list). Fine for hundreds of clients per tenant; move to SQL with pagination if a tenant grows past that. |
+| TD-026 | — | **Client list filters in memory** (`q` search over the scoped list). Fine for hundreds of clients per tenant; move to SQL with pagination if a tenant grows past that. |
 | TD-027 | 5 | **Resend inbound adapter is untested against a live account.** Signature verification and routing are covered; the attachment download endpoint in `inbound/resend.ts` was written from the published API and must be verified with the first real domain. |
-| TD-029 | 10 | **No offline upload queue.** Uploads retry and resume while the page is open; closing it loses the queue. IndexedDB + service worker arrive with the PWA. |
 | TD-031 | — | **Inbound attachments under 5 KB are skipped** as signature logos (`inbound/service.ts`). Replace with Content-Disposition/Content-ID once the provider exposes them. |
-| TD-033 | 10 | **The inbox loads at most 300 documents** and filters in one query without pagination. |
+| TD-033 | — | **The inbox loads at most 300 documents** and filters in one query without pagination. |
 | TD-034 | 9 | **`/api/webhooks/resend-inbound` and `/api/uploads` are not rate limited.** |
 | TD-035 | — | **E2E runs against the development database** locally (it re-seeds and leaves its uploads and test tenants behind). CI uses a fresh database. |
 | TD-037 | — | **The traffic-light overview is quarterly.** Clients with monthly VAT keep monthly checklists and are not listed in the quarter view. |
-| TD-038 | 10 | **Dashboard numbers are computed on every visit** (overview of all clients in memory; average over the last 2 000 processed documents). Cache or pre-aggregate if a tenant grows large. |
-| TD-040 | 10 | **No demo reset job yet** (04:00 re-seed when `DEMO_MODE`). |
+| TD-038 | — | **Dashboard numbers are computed on every visit** (overview of all clients in memory; average over the last 2 000 processed documents). Cache or pre-aggregate if a tenant grows large. |
 | TD-041 | — | **Failed-jobs panel has no pagination or bulk retry**: first 100 per queue. |
 | TD-042 | 9 | **Reply-by-email trusts the From address plus the thread token** (ADR 0022). Enforce DMARC on the inbound domain when it is connected. |
-| TD-043 | 10 | **Counters refresh on navigation only**: the bell and unread threads are server-rendered, there is no polling or live update. |
+| TD-043 | — | **Counters refresh on navigation only**: the bell and unread threads are server-rendered, there is no polling or live update. |
 | TD-044 | — | **Attachments are added after the message is sent** (15-minute window, author only). An attachment that fails leaves a message without it and a warning to the author. |
 | TD-046 | — | **Every staff participant of a thread is notified of each new message**; there is no per-thread mute. |
 | TD-047 | 9 | **The proxy in front of the app must overwrite `X-Forwarded-Host`** (tenant resolution reads it first). Vercel does; document it for any other deployment. |
-| TD-048 | 10 | **i18n covers the shared header only.** `lib/i18n` and the five dictionaries exist; page copy is still inline Spanish and there is no locale switch (`User.locale` is stored but unused). |
+| TD-048 | — | **i18n covers the shared header only.** `lib/i18n` and the five dictionaries exist; page copy is still inline Spanish and there is no locale switch (`User.locale` is stored but unused). |
 | TD-049 | — | **Vercel and Resend domain adapters are untested against live accounts** (same situation as TD-027). The flows are covered with injected providers and DNS resolvers. |
 | TD-050 | — | **Brand colours are validated against the light theme only**; in dark mode the tenant colours are used as they are. |
 | TD-051 | — | **Notification and message emails keep fixed wording** (only invitations, magic links and reminders are in the editable registry). |
@@ -46,7 +43,7 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
 | TD-060 | — | **The new-invoice form takes three lines and one VAT rate**; the service accepts up to 50 lines with their own rates. |
 | TD-061 | — | **A TOTP code can be replayed inside its 30-second window**: the last accepted step is not stored. Needs a `totpLastStep` column; the attacker would already need the password and a live code. |
-| TD-062 | 10 | **2FA enforcement is off when `DEMO_MODE=true`** so the published demo users work. The feature itself stays on. Never run a real tenant with demo mode. |
+| TD-062 | — | **2FA enforcement is off when `DEMO_MODE=true`** so the published demo users work. The feature itself stays on. Never run a real tenant with demo mode. |
 | TD-063 | — | **Data exports are built in memory** (`buildExport`). Fine for a small gestoría; a tenant with many GB needs a streamed ZIP into a multipart upload. |
 | TD-064 | — | **The DPA gate lives in the route-group layouts** (`requireArea`), not in server actions or API routes, and the text is a template that needs the platform owner's legal review. No PDF copy is emailed after accepting. |
 | TD-065 | — | **Rate limiting is a fixed window keyed by `X-Forwarded-For`**: a 2x burst across the boundary is possible, and it trusts the proxy to overwrite that header (see TD-047). |
@@ -54,6 +51,12 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-067 | — | **CSP keeps `style-src 'unsafe-inline'`**: tenant colours are CSS variables in a style attribute and Next inlines critical CSS. Scripts are nonce-only. |
 | TD-068 | — | **A cancelled tenant can only be reactivated by hand** (set `status='ACTIVE'`, clear `purgeAfter`): `setTenantStatus` handles ACTIVE/SUSPENDED only. |
 | TD-069 | — | **Retention deletes without warning**: no "these documents will be deleted next month" notice to the tenant admin. |
+| TD-070 | — | **Pages are never cached by the service worker** (personal data on possibly shared devices), so `/subir` cannot be opened from a cold start without network: the offline queue covers a connection lost while using it, or files left from a previous visit. |
+| TD-071 | — | **The offline queue covers the client uploader only** (not staff uploads: receipts, deliveries, permanent documents). Safari may evict IndexedDB of a site unused for 7 days unless the PWA is installed. |
+| TD-072 | — | **Help centre is fixed content**: ten Spanish articles for clients, no search, not editable per tenant, none for staff. |
+| TD-073 | — | **Lighthouse is run by hand** against the local production build (scores in the README), not in CI, and not on a throttled real device. |
+| TD-074 | — | **The demo reset only recreates `perez` and `otra`**: gestorías that visitors register in a demo environment stay (unverified ones are swept after 7 days). |
+| TD-075 | — | **Only server-side errors are reported** (`onRequestError`, actions, API routes, webhooks, final job failures). Browser errors are not. |
 
 ## Closed
 
@@ -78,3 +81,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-007 | phase 9 | Session list with revoke one / revoke the others in "Tu cuenta". |
 | TD-008 | phase 9 | Support mode: grant with reason and expiry, early revoke, read-only overview for the superadmin, all audited (reduced scope: TD-066). |
 | TD-039 | phase 9 | Daily sweep physically deletes soft-deleted documents and permanent documents after 30 days, files nothing references, and documents past the retention period. |
+| TD-011 | phase 10 | Error reporting to any Sentry-compatible service through the envelope endpoint, without SDK (`lib/report-error.ts`, `instrumentation.ts`). |
+| TD-029 | phase 10 | Offline upload queue in IndexedDB: files survive a lost connection, a closed page or a restart and are sent (resumed) on the next online visit. E2E covered. |
+| TD-040 | phase 10 | `demo-reset` job at 04:00 when `DEMO_MODE`: physically deletes the demo tenants and runs the seed again. |

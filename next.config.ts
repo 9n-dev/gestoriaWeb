@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Loaded by Node at runtime instead of being bundled (dynamic requires, native bindings).
   serverExternalPackages: ['bullmq', 'ioredis'],
+  // Help articles are read with fs at request time: make sure they ship with the server bundle.
+  outputFileTracingIncludes: { '/ayuda/**': ['./content/help/*.md'] },
 };
 
 export default nextConfig;

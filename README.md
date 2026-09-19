@@ -8,11 +8,13 @@ summary and permission matrix are in [`docs/foundation.md`](docs/foundation.md);
 each decision is in [`docs/adr/`](docs/adr). Known shortcuts live in
 [`docs/tech-debt.md`](docs/tech-debt.md).
 
-**Status: phase 9 of 10.** Sign-up and onboarding, clients and tax obligations,
-document intake with a manager inbox, checklists with a traffic light, filings, daily reminders, messaging
-(also by replying to emails), a notification centre with web push, and deliveries with simple signature.
-White label is complete (logo, favicon, colours with contrast check, sender name, custom domain, sending domain, editable emails). AI extraction of invoices and the accounting export are in. Billing of the gestoría to its clients is in. Security (2FA, rate limiting, CSP, revocable sessions, support mode) and GDPR operations (agreements, export, erasure, retention, tenant purge) are in. Still to come:
-PWA/offline, help centre and polish (10).
+**Status: all 10 phases done.** Sign-up and onboarding, clients and tax obligations, document intake
+(web, PWA with offline queue, email) with a manager inbox, AI extraction and accounting export, checklists
+with a traffic light, filings, daily reminders, messaging (also by replying to emails), notifications with web
+push, deliveries with simple signature, billing with online payments, complete white label, security (2FA,
+rate limiting, CSP, revocable sessions, support mode), GDPR operations, help centre and demo mode. What is
+knowingly left for later is listed, item by item, in [`docs/tech-debt.md`](docs/tech-debt.md); the
+"definition of done" of the spec is checked at the [end of this file](#definition-of-done).
 
 ## Requirements
 
@@ -93,8 +95,8 @@ with an incomplete configuration. Never read `process.env` elsewhere (ESLint enf
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`                                                               | no       | AI extraction of invoice fields (default model `claude-opus-5`). Empty key = development parser that only reads the synthetic demo invoices |
 | `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `PLATFORM_CNAME_TARGET`                                         | no       | Attach verified custom domains to the Vercel project (SSL). Empty = verified by TXT, attach by hand                                         |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                                              | no       | Web push. `npx web-push generate-vapid-keys`. Empty = pushes are only logged                                                                |
-| `DEMO_MODE`                                                                                          | no       | `true` shows the demo banner and demo users on the login page                                                                               |
-| `SENTRY_DSN`                                                                                         | no       | Not wired yet (TD-011)                                                                                                                      |
+| `DEMO_MODE`                                                                                          | no       | `true` shows the demo banner and demo users, resets the demo tenants at 04:00 and **turns 2FA enforcement off**                             |
+| `SENTRY_DSN`                                                                                         | no       | Sentry-compatible DSN; server errors are POSTed to its envelope endpoint (no SDK)                                                           |
 
 ### External services and their development fakes
 
@@ -264,6 +266,26 @@ separator. See ADR 0025–0026.
 
 See ADR 0028–0030.
 
+## PWA, offline and help
+
+- **Installable** per tenant: `/manifest.webmanifest` carries the gestoría's name and colour, and
+  `/api/branding/icon/<size>` draws its icon (initial on the brand colour). The manifest has a
+  "Subir documentos" shortcut; from the home screen an invoice is three touches: open → Subir documentos →
+  Hacer una foto.
+- **Intermittent connection**: every chosen file is stored in IndexedDB before it is sent and removed when
+  it arrives. Offline, files wait as "Pendiente de conexión"; they go out on the `online` event or the next
+  time `/subir` opens, resuming multipart uploads where they stopped. The service worker (`public/sw.js`)
+  caches hashed build assets and answers failed navigations with `/offline`. It never caches pages or API
+  responses.
+- **Help**: `/ayuda` renders `content/help/NN-slug.md` (public, under the tenant's logo). To add an
+  article, drop a Markdown file there: `# Title`, `##`, paragraphs, lists, `**bold**` and links.
+- **Errors**: with `SENTRY_DSN`, uncaught request errors, failed actions/API routes/webhooks and jobs
+  that exhaust their retries are reported. `error.tsx`/`not-found.tsx` give Spanish fallbacks.
+- **Demo**: with `DEMO_MODE=true` a banner shows on every page and the worker runs `demo-reset` at 04:00
+  (deletes tenants `perez` and `otra`, rows and bucket, and seeds them again).
+
+See ADR 0031–0032.
+
 ## White label
 
 Ajustes → Marca / Dominio / Emails. A custom domain only resolves to its tenant after our DNS lookup finds the
@@ -321,3 +343,16 @@ Obligations for year N+1 are generated from 1 December of year N, so the file mu
   Templates are matched by `name`, so renaming one creates a new template.
 - **A new form (modelo)**: add it to every `tax-calendar-<year>.json` with its periods; it then shows up
   in the profile editor.
+
+## Definition of done
+
+Checked against §9 of the spec (`CLAUDE.md`):
+
+| Requirement                                                                                                                          | Where it is demonstrated                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A gestoría signs up, brands itself, imports and invites clients and receives documents on its own domain without manual intervention | `e2e/onboarding.spec.ts` (sign-up → agreement → wizard → 20 invited clients), `e2e/upload-and-book.spec.ts`; custom domains verify by DNS TXT and attach through `DomainProvider` (needs `VERCEL_*` keys in production, fake adapter otherwise)                                      |
+| No tenant-isolation test fails; no endpoint returns data without `can()`                                                             | `src/modules/tenants/isolation.test.ts` enumerates every tenant model from the Prisma schema and every listing service; all data access goes through services that call `assertCan` and `tenantDb`                                                                                   |
+| Lighthouse mobile ≥ 90 performance, ≥ 95 accessibility on client screens                                                             | Production build on localhost, 2026-09-19: `/acceso` 96/100, `/inicio` 100/100, `/subir` 95/100, `/documentos` 99/100, `/plazos`, `/mensajes`, `/entregas`, `/facturas` 100/100, `/cuenta` 99/100. Re-run: `npx lighthouse <url> --form-factor=mobile --extra-headers=<cookie json>` |
+| A manager processes 50 documents in a row with the keyboard only                                                                     | Inbox shortcuts (J/K move, B book, Enter confirm, R reject, D duplicate, E edit fields); `e2e/upload-and-book.spec.ts` books and rejects by keyboard                                                                                                                                 |
+| A whole tenant can be exported and deleted and the system is left clean                                                              | `src/modules/gdpr/gdpr.test.ts`: after the purge every tenant-owned model counts 0, the bucket prefix is empty and the neighbour tenant is untouched                                                                                                                                 |
+| Documented and demonstrable in demo mode                                                                                             | This file; `npm run db:seed` + `DEMO_MODE=true`                                                                                                                                                                                                                                      |
