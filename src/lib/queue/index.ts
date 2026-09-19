@@ -2,7 +2,7 @@ import 'server-only';
 import { Queue, Worker, type JobsOptions, type Processor } from 'bullmq';
 import { env } from '@/env';
 
-export const QUEUES = { files: 'files' } as const;
+export const QUEUES = { files: 'files', scheduled: 'scheduled' } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
 // BullMQ needs its own connections (blocking commands): never the shared client of lib/redis.ts.
@@ -29,20 +29,34 @@ const DEFAULT_JOB_OPTIONS: JobsOptions = {
 const globalForQueues = globalThis as unknown as { queues?: Map<string, Queue> };
 const queues = (globalForQueues.queues ??= new Map());
 
-/** `jobId` makes enqueueing idempotent: the same id is never queued twice. */
-export async function enqueue(
-  queue: QueueName,
-  name: string,
-  data: object,
-  jobId?: string,
-): Promise<void> {
+export function getQueue(queue: QueueName): Queue {
   if (!queues.has(queue)) {
     queues.set(
       queue,
       new Queue(queue, { connection: connection(), defaultJobOptions: DEFAULT_JOB_OPTIONS }),
     );
   }
-  await queues.get(queue)!.add(name, data, { jobId });
+  return queues.get(queue)!;
+}
+
+/** `jobId` makes enqueueing idempotent: the same id is never queued twice. It cannot contain ":". */
+export async function enqueue(
+  queue: QueueName,
+  name: string,
+  data: object,
+  jobId?: string,
+): Promise<void> {
+  await getQueue(queue).add(name, data, { jobId });
+}
+
+/** Cron-like repeating job. Upsert: safe to call on every worker start. */
+export async function scheduleRepeating(
+  queue: QueueName,
+  schedulerId: string,
+  pattern: string,
+  name: string,
+): Promise<void> {
+  await getQueue(queue).upsertJobScheduler(schedulerId, { pattern, tz: 'Europe/Madrid' }, { name });
 }
 
 export const createWorker = (queue: QueueName, processor: Processor, concurrency = 4): Worker =>

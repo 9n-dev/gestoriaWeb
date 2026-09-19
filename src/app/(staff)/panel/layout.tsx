@@ -13,7 +13,10 @@ export default async function StaffLayout({ children }: { children: ReactNode })
     redirect('/bienvenida');
 
   const nav = [
+    { href: '/panel', label: 'Resumen' },
     { href: '/panel/bandeja', label: 'Bandeja' },
+    { href: '/panel/semaforo', label: 'Semáforo' },
+    { href: '/panel/plazos', label: 'Plazos' },
     { href: '/panel/clientes', label: 'Clientes' },
     ...(can(user, 'tenantSettings.manage') ? [{ href: '/panel/ajustes', label: 'Ajustes' }] : []),
   ];

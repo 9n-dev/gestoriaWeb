@@ -10,6 +10,7 @@ const SECTIONS = [
   { href: '/panel/ajustes/equipo', label: 'Equipo' },
   { href: '/panel/ajustes/perfiles-fiscales', label: 'Perfiles fiscales' },
   { href: '/panel/ajustes/documentos', label: 'Documentos' },
+  { href: '/panel/ajustes/recordatorios', label: 'Recordatorios' },
 ];
 
 export default async function SettingsLayout({ children }: { children: ReactNode }) {

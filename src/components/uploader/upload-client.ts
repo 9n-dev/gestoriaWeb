@@ -15,7 +15,8 @@ export type UploadMeta =
       title: string;
       category: string;
       expiresAt: string;
-    };
+    }
+  | { purpose: 'OBLIGATION_RECEIPT'; clientId: string; obligationId: string };
 export type PeriodValue = { year: number; type: 'MONTH' | 'QUARTER' | 'YEAR'; ordinal: number };
 type Ticket = { fileId: string; partSize: number; partCount: number; uploadedParts: number[] };
 

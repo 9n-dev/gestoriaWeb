@@ -88,6 +88,7 @@ const MATRIX = {
   // Obligations & checklist
   'obligation.read': CLIENT_AND_STAFF,
   'obligation.update': STAFF,
+  'obligationReceipt.download': CLIENT_AND_STAFF,
   'checklist.read': CLIENT_AND_STAFF,
   'checklist.manage': STAFF,
   'period.close': STAFF,

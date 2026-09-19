@@ -12,7 +12,14 @@ export default async function PlatformHomePage() {
 
   return (
     <>
-      <AppHeader tenant={null} userName={user.name} />
+      <AppHeader
+        tenant={null}
+        userName={user.name}
+        nav={[
+          { href: '/plataforma', label: 'Gestorías' },
+          { href: '/plataforma/jobs', label: 'Jobs fallidos' },
+        ]}
+      />
       <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4">
         <section className="flex flex-col gap-4">
           <h1 className="text-2xl font-semibold">Gestorías</h1>

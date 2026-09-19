@@ -16,15 +16,12 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-009 | — | **`tenantDb` does not rewrite nested writes or `include` filters** (ADR 0005). Rule: ids coming from the user are first loaded through `tenantDb`. Optional hardening: Postgres RLS. |
 | TD-010 | — | **Down migrations are manual.** Prisma has no native rollback: each migration folder carries a hand-written `down.sql`. CI does not verify them. |
 | TD-011 | 10 | **Sentry not wired.** `SENTRY_DSN` is validated in `env.ts` but unused; errors go to stdout. |
-| TD-013 | 4 | **No cleanup job yet**: expired `UserSession` and `VerificationToken` rows, tenants that never verified, uploads abandoned in `PENDING` (with their open S3 multipart uploads) and objects of soft-deleted files. One daily job with the workers. |
 | TD-014 | — | **Prisma 6 → 8 upgrade** once v8 is stable (ADR 0011). ESLint 9 and TypeScript 5.9 are pinned for `eslint-config-next@15` compatibility. |
 | TD-015 | — | **MinIO image comes from quay.io**: MinIO stopped publishing to Docker Hub. Revisit if quay.io images stop too (any S3-compatible server works). |
 | TD-016 | — | **Client import is CSV only** (ADR 0014). XLSX needs a large dependency. |
 | TD-018 | 9 | **`/registro` has no rate limit or captcha**: anyone can create pending tenants and trigger verification emails. Pending tenants that never verify are not cleaned up (add to the TD-013 job). |
 | TD-019 | — | **K/L/M NIFs are accepted by format only** (`lib/tax-id.ts`); their control character is not checked. |
 | TD-020 | 9 | **Staff cannot be disabled, re-roled or removed from the UI**, and client users cannot be unlinked (`client.removeUser` exists in the matrix, no service yet). Invitation and listing are done. |
-| TD-021 | 4 | **Obligations cannot be created or removed by hand**, only through the tax profile (ADR 0013). Phase 4 adds manual handling together with status changes. |
-| TD-023 | 4 | **The December job is not scheduled yet.** `syncObligationsForClients({}, { today })` is built and tested; phase 4 wires it to BullMQ. |
 | TD-024 | 6 | **Tenant colors are applied without contrast validation** and are not adapted to dark mode. |
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
 | TD-026 | 10 | **Client list filters in memory** (`q` search over the scoped list). Fine for hundreds of clients per tenant; move to SQL with pagination if a tenant grows past that. |
@@ -33,10 +30,15 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-029 | 10 | **No offline upload queue.** Uploads retry and resume while the page is open; closing it loses the queue. IndexedDB + service worker arrive with the PWA. |
 | TD-030 | 5 | **Notifications have no UI**: rows are written and emails sent (`notifyUsers`), but there is no bell, counter or preferences yet. Inbound emails without attachments create messages nobody can read in the portal until the messaging phase. |
 | TD-031 | — | **Inbound attachments under 5 KB are skipped** as signature logos (`inbound/service.ts`). Replace with Content-Disposition/Content-ID once the provider exposes them. |
-| TD-032 | 4 | **Permanent documents have no expiry notices yet** (60/30/7 days): they need the scheduled workers. |
 | TD-033 | 10 | **The inbox loads at most 300 documents** and filters in one query without pagination. |
 | TD-034 | 9 | **`/api/webhooks/resend-inbound` and `/api/uploads` are not rate limited.** |
 | TD-035 | — | **E2E runs against the development database** locally (it re-seeds and leaves its uploads and test tenants behind). CI uses a fresh database. |
+| TD-036 | 6 | **Reminder wording can only be changed in the database.** Overrides are read from `Template` (kind EMAIL, keys `reminder.*`); the editor with preview arrives with white label. |
+| TD-037 | — | **The traffic-light overview is quarterly.** Clients with monthly VAT keep monthly checklists and are not listed in the quarter view. |
+| TD-038 | 10 | **Dashboard numbers are computed on every visit** (overview of all clients in memory; average over the last 2 000 processed documents). Cache or pre-aggregate if a tenant grows large. |
+| TD-039 | 9 | **Soft-deleted files keep their objects in the bucket** (replaced receipts, deleted permanent documents). Physical removal belongs to the retention policy. |
+| TD-040 | 10 | **No demo reset job yet** (04:00 re-seed when `DEMO_MODE`). |
+| TD-041 | — | **Failed-jobs panel has no pagination or bulk retry**: first 100 per queue. |
 
 ## Closed
 
@@ -46,3 +48,7 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-012 | phase 3 | E2E placeholder: Playwright now covers onboarding (20 invited clients), upload → book / reject by keyboard, and 10 photos over throttled 3G. |
 | TD-017 | phase 3 | Tenant logos unscanned: they now go through the same `processFile` pipeline. |
 | TD-022 | phase 3 | Permanent documents: upload, list, download and delete are done (expiry notices moved to TD-032). |
+| TD-013 | phase 4 | Cleanup job: expired sessions and tokens, unverified sign-ups, abandoned uploads (objects of soft-deleted files moved to TD-039). |
+| TD-021 | phase 4 | Manual obligations: create from the calendar, delete while untouched. |
+| TD-023 | phase 4 | December job: the daily tenant job syncs obligations on the 1st of every month. |
+| TD-032 | phase 4 | Expiry notices for permanent documents at 60, 30 and 7 days. |

@@ -7,6 +7,7 @@ import { PrismaClient, type DocumentStatus, type Role } from '@prisma/client';
 import { addDays, toDateOnly, todayInMadrid } from '../src/lib/dates';
 import { hashPassword } from '../src/modules/auth/password';
 import { putObject } from '../src/lib/storage/objects';
+import { ensureChecklist, refreshChecklist } from '../src/modules/checklists/sync';
 import { DEFAULT_REJECTION_REASONS } from '../src/modules/documents/schema';
 import { syncObligationsForClient } from '../src/modules/obligations/service';
 import { invoicePdf, invoiceTotals, makePdf, type DemoInvoice } from './seed-files';
@@ -363,6 +364,90 @@ async function seedDocuments(tenantId: string, managerOf: Map<string, string>) {
   }
 }
 
+// §7: obligations of the current year in different states. The sync only creates deadlines that are
+// still ahead, so the first half of the year is added here as already filed.
+async function seedFiledObligations(tenantId: string, clientId: string, managerId: string) {
+  const filed = [
+    {
+      model: '303',
+      ordinal: 1,
+      due: '2026-04-20',
+      result: 'TO_PAY' as const,
+      amount: 1184.32,
+      directDebit: true,
+    },
+    {
+      model: '130',
+      ordinal: 1,
+      due: '2026-04-20',
+      result: 'TO_PAY' as const,
+      amount: 412.5,
+      directDebit: true,
+    },
+    {
+      model: '303',
+      ordinal: 2,
+      due: '2026-07-20',
+      result: 'TO_REFUND' as const,
+      amount: 236.1,
+      directDebit: false,
+    },
+    {
+      model: '130',
+      ordinal: 2,
+      due: '2026-07-20',
+      result: 'ZERO' as const,
+      amount: 0,
+      directDebit: false,
+    },
+  ];
+  for (const item of filed) {
+    const period = await prisma.period.upsert({
+      where: { year_type_ordinal: { year: 2026, type: 'QUARTER', ordinal: item.ordinal } },
+      create: { year: 2026, type: 'QUARTER', ordinal: item.ordinal },
+      update: {},
+    });
+    const storageKey = `${tenantId}/demo/justificante-${item.model}-${item.ordinal}t.pdf`;
+    const bytes = makePdf([
+      `Justificante de presentación (demostración)`,
+      '',
+      `Modelo ${item.model} · ${item.ordinal}T 2026`,
+      `Resultado: ${item.amount.toFixed(2)} EUR`,
+    ]);
+    await putObject(storageKey, bytes, 'application/pdf');
+    const fileData = {
+      tenantId,
+      kind: 'OBLIGATION_RECEIPT' as const,
+      status: 'CLEAN' as const,
+      originalName: `justificante-${item.model}-${item.ordinal}T-2026.pdf`,
+      mimeType: 'application/pdf',
+      sizeBytes: bytes.length,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+      scannedAt: new Date(),
+    };
+    const file = await prisma.storedFile.upsert({
+      where: { storageKey },
+      create: { storageKey, ...fileData },
+      update: fileData,
+    });
+    const data = {
+      dueDate: toDateOnly(item.due),
+      status: 'FILED' as const,
+      result: item.result,
+      resultAmount: item.amount,
+      directDebit: item.directDebit,
+      filedAt: toDateOnly(addDays(item.due, -3)),
+      filedById: managerId,
+      receiptFileId: file.id,
+    };
+    await prisma.obligation.upsert({
+      where: { clientId_model_periodId: { clientId, model: item.model, periodId: period.id } },
+      create: { tenantId, clientId, model: item.model, periodId: period.id, ...data },
+      update: data,
+    });
+  }
+}
+
 async function upsertUser(
   tenantId: string | null,
   email: string,
@@ -463,6 +548,30 @@ async function main() {
     update: {},
     create: { tenantId: perez.id, clientId: marta.id, userId: cliente.id },
   });
+
+  await seedFiledObligations(perez.id, marta.id, managers.gestor.id);
+
+  // Checklists of the period being collected, ticked from the demo documents.
+  for (const client of clients) {
+    const periodId = await ensureChecklist(perez.id, client.id, { today });
+    await refreshChecklist(perez.id, client.id, [periodId]);
+  }
+  // One filing already under way, with the amount the client should expect.
+  const underWay = await prisma.obligation.findFirst({
+    where: {
+      tenantId: perez.id,
+      model: '303',
+      status: 'PENDING_DOCS',
+      client: { legalName: 'Reformas Turia, S.L.' },
+    },
+    orderBy: { dueDate: 'asc' },
+  });
+  if (underWay) {
+    await prisma.obligation.update({
+      where: { id: underWay.id },
+      data: { status: 'IN_PROGRESS', estimatedAmount: 3420.75 },
+    });
+  }
 
   // §7 asks for a deadline within 5 days of the seed run, whatever the date. The real calendar
   // cannot guarantee that, so the demo client's next obligation is moved. Demo data only.

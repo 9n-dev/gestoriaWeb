@@ -7,6 +7,7 @@ const NAV = [
   { href: '/inicio', label: 'Inicio' },
   { href: '/subir', label: 'Subir' },
   { href: '/documentos', label: 'Mis documentos' },
+  { href: '/plazos', label: 'Plazos' },
 ];
 
 export default async function ClientLayout({ children }: { children: ReactNode }) {

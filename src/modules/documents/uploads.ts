@@ -16,6 +16,7 @@ import {
   presignPart,
 } from '@/lib/storage/multipart';
 import { recordAudit } from '@/modules/audit/service';
+import { refreshChecklist } from '@/modules/checklists/sync';
 import {
   assertCan,
   can,
@@ -40,6 +41,7 @@ export const ensurePeriod = (period: PeriodRef) =>
 const PURPOSE_ACTION = {
   DOCUMENT: 'document.upload',
   PERMANENT_DOCUMENT: 'permanentDocument.manage',
+  OBLIGATION_RECEIPT: 'obligation.update',
 } as const satisfies Record<string, Action>;
 
 /** Client resource for upload checks, including whether the target period is closed for it. */
@@ -109,6 +111,23 @@ export async function initiateUpload(
         source: 'WEB',
       },
     });
+  } else if (request.purpose === 'OBLIGATION_RECEIPT') {
+    // The receipt ("justificante") of a filing. A new one replaces the previous file.
+    const obligation = await db.obligation.findFirst({
+      where: { id: request.obligationId, clientId: request.clientId },
+      select: { id: true, receiptFileId: true },
+    });
+    if (!obligation) {
+      await db.storedFile.delete({ where: { id: file.id } });
+      throw new AppError('NOT_FOUND', 'No encontramos esa obligación.');
+    }
+    await db.obligation.update({ where: { id: obligation.id }, data: { receiptFileId: file.id } });
+    if (obligation.receiptFileId) {
+      await db.storedFile.update({
+        where: { id: obligation.receiptFileId },
+        data: { deletedAt: new Date() },
+      });
+    }
   } else {
     await db.permanentDocument.create({
       data: {
@@ -142,10 +161,14 @@ async function loadUpload(
   if (!user.tenantId)
     throw new AppError('FORBIDDEN', 'No tienes permiso para realizar esta acción.');
   const file = await tenantDb(user.tenantId).storedFile.findFirst({
-    where: { id: fileId, kind: { in: ['DOCUMENT', 'PERMANENT_DOCUMENT'] }, deletedAt: null },
-    include: { document: true, permanentDocument: true },
+    where: {
+      id: fileId,
+      kind: { in: ['DOCUMENT', 'PERMANENT_DOCUMENT', 'OBLIGATION_RECEIPT'] },
+      deletedAt: null,
+    },
+    include: { document: true, permanentDocument: true, obligationReceipt: true },
   });
-  const owner = file?.document ?? file?.permanentDocument;
+  const owner = file?.document ?? file?.permanentDocument ?? file?.obligationReceipt;
   if (!file || !owner) throw new AppError('NOT_FOUND', 'No encontramos esa subida.');
 
   const periodId = file.document?.periodId ?? null;
@@ -193,6 +216,10 @@ async function discard(file: StoredFile): Promise<void> {
   const db = tenantDb(file.tenantId);
   await db.document.deleteMany({ where: { fileId: file.id } });
   await db.permanentDocument.deleteMany({ where: { fileId: file.id } });
+  await db.obligation.updateMany({
+    where: { receiptFileId: file.id },
+    data: { receiptFileId: null },
+  });
   await db.storedFile.delete({ where: { id: file.id } });
 }
 
@@ -238,11 +265,12 @@ export async function completeUpload(
   await recordAudit({
     tenantId: file.tenantId,
     actor: user,
-    action: file.kind === 'DOCUMENT' ? 'document.upload' : 'permanentDocument.upload',
+    action: `${file.kind === 'DOCUMENT' ? 'document' : file.kind === 'OBLIGATION_RECEIPT' ? 'obligationReceipt' : 'permanentDocument'}.upload`,
     entity: 'StoredFile',
     entityId: file.id,
     diff: { clientId: file.clientId, name: file.originalName, sizeBytes },
   });
+  await refreshChecklist(file.tenantId, file.clientId, [file.periodId]);
   await enqueue(QUEUES.files, 'process', { tenantId: file.tenantId, fileId: file.id }, file.id);
   return { fileId };
 }

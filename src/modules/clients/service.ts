@@ -11,6 +11,7 @@ import {
   type Resource,
   type SessionUser,
 } from '@/modules/auth/permissions';
+import { ensureChecklist } from '@/modules/checklists/sync';
 import { syncObligationsForClient, type ObligationDiff } from '@/modules/obligations/service';
 import {
   clientsRepository,
@@ -145,7 +146,10 @@ export async function createClient(user: SessionUser, input: ClientInput): Promi
       assignedManagerId: managerId,
     },
   });
-  if (taxProfileId) await syncObligationsForClient(tenantId, created.id);
+  if (taxProfileId) {
+    await syncObligationsForClient(tenantId, created.id);
+    await ensureChecklist(tenantId, created.id);
+  }
   return (await clientsRepository(tenantId).findForStaff(created.id))!;
 }
 
@@ -224,7 +228,9 @@ export async function assignTaxProfile(
     entityId: id,
     diff: { before: client.taxProfileId, after: taxProfileId },
   });
-  return syncObligationsForClient(client.tenantId, id);
+  const diff = await syncObligationsForClient(client.tenantId, id);
+  await ensureChecklist(client.tenantId, id);
+  return diff;
 }
 
 export async function updateInternalNotes(
