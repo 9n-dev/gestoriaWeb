@@ -1,4 +1,5 @@
 import type {
+  DeliveryCategory,
   DocumentSource,
   DocumentStatus,
   FileStatus,
@@ -32,3 +33,11 @@ export const PERMANENT_CATEGORY: Record<PermanentDocumentCategory, string> = {
 /** What people see while the worker has not finished with the file. */
 export const fileStatusNote = (status: FileStatus): string | null =>
   status === 'UPLOADED' ? 'Analizando…' : status === 'INFECTED' ? 'Bloqueado' : null;
+
+export const DELIVERY_CATEGORY: Record<DeliveryCategory, string> = {
+  FILED_FORM: 'Modelo presentado',
+  LEDGER: 'Libro o listado',
+  LETTER: 'Carta o comunicación',
+  CERTIFICATE: 'Certificado',
+  OTHER: 'Otro',
+};

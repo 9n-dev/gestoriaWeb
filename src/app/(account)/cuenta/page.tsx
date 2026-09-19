@@ -3,13 +3,21 @@ import { AppHeader } from '@/components/app-header';
 import { ROLE } from '@/lib/labels';
 import { homePathFor, requireUser } from '@/modules/auth/session';
 import { getCurrentTenant } from '@/modules/tenants/current';
+import { env } from '@/env';
+import { getNotificationPrefs, unreadCount } from '@/modules/messaging/notifications';
+import { NotificationSettings, PushToggle } from './notification-settings';
 import { PasswordForm } from './password-form';
 
 export default async function AccountPage() {
   const user = await requireUser();
+  const prefs = await getNotificationPrefs(user);
   return (
     <>
-      <AppHeader tenant={await getCurrentTenant()} userName={user.name} />
+      <AppHeader
+        tenant={await getCurrentTenant()}
+        userName={user.name}
+        unread={await unreadCount(user)}
+      />
       <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4">
         <div>
           <p className="text-sm text-fg-muted">
@@ -30,6 +38,13 @@ export default async function AccountPage() {
           </p>
           <PasswordForm />
         </section>
+        {user.tenantId && (
+          <section className="flex flex-col gap-3 border-t border-border pt-6">
+            <h2 className="text-lg font-semibold">Notificaciones</h2>
+            <NotificationSettings {...prefs} />
+            <PushToggle vapidPublicKey={env.VAPID_PUBLIC_KEY ?? null} />
+          </section>
+        )}
       </main>
     </>
   );
