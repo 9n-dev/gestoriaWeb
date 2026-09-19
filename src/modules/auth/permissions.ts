@@ -101,6 +101,7 @@ const MATRIX = {
   'thread.readInternal': STAFF,
   'message.sendInternal': STAFF,
   'thread.close': STAFF,
+  'messageAttachment.download': CLIENT_AND_STAFF,
   'messageTemplate.use': ANY_STAFF,
   // Deliveries
   'delivery.read': CLIENT_AND_STAFF,

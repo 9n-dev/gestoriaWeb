@@ -877,6 +877,7 @@ model Delivery {
   title        String
   category     DeliveryCategory @default(OTHER)
   visibleFrom  DateTime         @default(now())
+  notifiedAt   DateTime? // the client has been told it is available (at once, or on visibleFrom)
   uploadedById String?
   uploadedBy   User?            @relation("DeliveryUploader", fields: [uploadedById], references: [id])
 

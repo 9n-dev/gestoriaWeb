@@ -39,6 +39,10 @@ const schema = z.object({
     z.string().default('docs.localhost'),
   ),
 
+  // Web push (VAPID). Generate with `npx web-push generate-vapid-keys`. Empty = pushes are only logged.
+  VAPID_PUBLIC_KEY: optional(z.string()),
+  VAPID_PRIVATE_KEY: optional(z.string()),
+
   DEMO_MODE: z.preprocess((v) => v === 'true' || v === '1', z.boolean()),
   SENTRY_DSN: optional(z.url()),
 });
