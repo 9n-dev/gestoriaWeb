@@ -12,6 +12,7 @@ import {
   cloneTaxProfile,
   updateTaxProfile,
 } from '@/modules/clients/tax-profiles/service';
+import { saveExportFormat } from '@/modules/documents/export';
 import { updateRejectionReasons } from '@/modules/documents/service';
 import {
   completeOnboarding,
@@ -198,5 +199,20 @@ export async function updateReminderSettingsAction(
     });
     revalidatePath('/panel/ajustes/recordatorios');
     return { success: 'Recordatorios guardados.' };
+  });
+}
+
+export async function saveExportFormatAction(
+  _: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    await saveExportFormat(await requireUser(), {
+      columns: formData.getAll('columns').map(String),
+      decimalSeparator: formData.get('decimalSeparator') === '.' ? '.' : ',',
+      onlyBooked: formData.get('onlyBooked') === 'on',
+    });
+    revalidatePath('/panel/exportar');
+    return { success: 'Formato guardado.' };
   });
 }

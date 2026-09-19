@@ -47,6 +47,8 @@ const documentSelect = {
   vatAmount: true,
   total: true,
   extractionConfirmed: true,
+  extractionStatus: true,
+  confidence: true,
   periodId: true,
   period: { select: { year: true, type: true, ordinal: true } },
   file: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, status: true } },

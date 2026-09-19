@@ -8,6 +8,8 @@ import { notifyClientUsers } from '@/modules/messaging/notifications';
 import type { VirusScanner } from './antivirus';
 
 export type ProcessingDeps = {
+  /** Queues the AI extraction of a document that came out clean and is not a duplicate. */
+  enqueueExtraction?(tenantId: string, documentId: string): Promise<void>;
   getBytes(key: string): Promise<Uint8Array>;
   putBytes(key: string, bytes: Uint8Array, contentType: string): Promise<void>;
   deleteObject(key: string): Promise<void>;
@@ -139,6 +141,8 @@ export async function processFile(
         diff: { duplicateOfId: twin.id, by: 'sha256' },
       });
       await refreshChecklist(tenantId, file.document.clientId, [file.document.periodId]);
+    } else {
+      await deps.enqueueExtraction?.(tenantId, file.document.id);
     }
   }
 }

@@ -23,7 +23,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
 | TD-026 | 10 | **Client list filters in memory** (`q` search over the scoped list). Fine for hundreds of clients per tenant; move to SQL with pagination if a tenant grows past that. |
 | TD-027 | 5 | **Resend inbound adapter is untested against a live account.** Signature verification and routing are covered; the attachment download endpoint in `inbound/resend.ts` was written from the published API and must be verified with the first real domain. |
-| TD-028 | 7 | **Extraction is manual.** Managers type the invoice fields; `extractionStatus` stays `PENDING` for the AI job of phase 7, which will also suggest the period from the invoice date (today the client or manager chooses it). |
 | TD-029 | 10 | **No offline upload queue.** Uploads retry and resume while the page is open; closing it loses the queue. IndexedDB + service worker arrive with the PWA. |
 | TD-031 | — | **Inbound attachments under 5 KB are skipped** as signature logos (`inbound/service.ts`). Replace with Content-Disposition/Content-ID once the provider exposes them. |
 | TD-033 | 10 | **The inbox loads at most 300 documents** and filters in one query without pagination. |
@@ -43,6 +42,10 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-049 | — | **Vercel and Resend domain adapters are untested against live accounts** (same situation as TD-027). The flows are covered with injected providers and DNS resolvers. |
 | TD-050 | — | **Brand colours are validated against the light theme only**; in dark mode the tenant colours are used as they are. |
 | TD-051 | — | **Notification and message emails keep fixed wording** (only invitations, magic links and reminders are in the editable registry). |
+| TD-052 | — | **The real extractor is not exercised in CI** (needs a key and costs money): `RUN_AI_EXTRACTION_TEST=1 ANTHROPIC_API_KEY=… npx vitest run src/modules/documents/extraction`. Run it before each release and when changing the prompt or the model. |
+| TD-053 | — | **One VAT rate per document.** Invoices with several rates store totals and the main rate. |
+| TD-054 | — | **No "extract again" button** for a document that failed or was read badly; the manager edits the fields. |
+| TD-055 | — | **Export has no vendor presets** (A3, Sage, Contasol…): columns and separator only. |
 
 ## Closed
 
@@ -60,3 +63,4 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-004 | phase 6 | Magic-link email hardcoded: now in the editable registry, with the invitation. |
 | TD-005 / TD-024 | phase 6 | Static branding without contrast validation: favicon, sender name, contrast warnings, automatic button text colour. |
 | TD-036 / TD-045 | phase 6 | Reminder wording only editable in the database; plain-text emails: editor with preview and branded HTML for every email. |
+| TD-028 | phase 7 | Manual extraction: AI extraction with confidence, period suggestion and duplicate check. |

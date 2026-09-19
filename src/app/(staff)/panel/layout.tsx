@@ -20,6 +20,7 @@ export default async function StaffLayout({ children }: { children: ReactNode })
     { href: '/panel/plazos', label: 'Plazos' },
     { href: '/panel/mensajes', label: 'Mensajes' },
     { href: '/panel/clientes', label: 'Clientes' },
+    { href: '/panel/exportar', label: 'Exportar' },
     ...(can(user, 'tenantSettings.manage') ? [{ href: '/panel/ajustes', label: 'Ajustes' }] : []),
   ];
   return (

@@ -1,0 +1,48 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 365 >>
+stream
+BT
+/F1 12 Tf
+72 770 Td
+16 TL
+(FACTURA \(documento de demostración, sin validez\)) Tj T*
+() Tj T*
+(Emisor: Informática Cabanyal, S.L.) Tj T*
+(NIF: B96000880) Tj T*
+(Cliente: Marta Soler Vidal) Tj T*
+() Tj T*
+(Número: INF/26/00231) Tj T*
+(Fecha: 30/03/2026) Tj T*
+() Tj T*
+(Base imponible: 1249,17 EUR) Tj T*
+(IVA 21 %: 262,33 EUR) Tj T*
+(TOTAL: 1511,50 EUR) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000657 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+754
+%%EOF
