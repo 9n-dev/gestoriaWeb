@@ -7,6 +7,11 @@ import { PrismaClient, type DocumentStatus, type Role } from '@prisma/client';
 import { addDays, toDateOnly, todayInMadrid } from '../src/lib/dates';
 import { hashPassword } from '../src/modules/auth/password';
 import { putObject } from '../src/lib/storage/objects';
+import {
+  generateMonthlyInvoices,
+  markInvoicePaid,
+  runDunning,
+} from '../src/modules/billing/service';
 import { ensureChecklist, refreshChecklist } from '../src/modules/checklists/sync';
 import { signDelivery } from '../src/modules/deliveries/service';
 import { DEFAULT_REJECTION_REASONS } from '../src/modules/documents/schema';
@@ -647,6 +652,77 @@ async function seedCommunication(
   }
 }
 
+// §7: invoices issued by the gestoría, one of them overdue. Built with the real monthly job, run
+// for the last three months, so numbering, PDFs and the hash chain are the genuine ones.
+async function seedBilling(tenantId: string, today: string) {
+  const fees = [
+    {
+      client: 'Marta Soler Vidal',
+      concept: 'Asesoría fiscal y contable',
+      amount: 60,
+      monthsBack: 0,
+    },
+    {
+      client: 'Reformas Turia, S.L.',
+      concept: 'Asesoría fiscal, contable y laboral',
+      amount: 180,
+      monthsBack: 2,
+    },
+    {
+      client: 'Bicis Malvarrosa, S.L.',
+      concept: 'Asesoría fiscal y contable',
+      amount: 120,
+      monthsBack: 1,
+    },
+  ];
+  const monthStart = (back: number) => {
+    const date = toDateOnly(`${today.slice(0, 7)}-01`);
+    date.setUTCMonth(date.getUTCMonth() - back);
+    return date.toISOString().slice(0, 10);
+  };
+  for (const fee of fees) {
+    const client = await prisma.client.findFirstOrThrow({
+      where: { tenantId, legalName: fee.client },
+    });
+    if (
+      !(await prisma.recurringFee.findFirst({
+        where: { clientId: client.id, concept: fee.concept },
+      }))
+    ) {
+      await prisma.recurringFee.create({
+        data: {
+          tenantId,
+          clientId: client.id,
+          concept: fee.concept,
+          amount: fee.amount,
+          startsOn: toDateOnly(monthStart(fee.monthsBack)),
+        },
+      });
+    }
+  }
+  for (const back of [2, 1, 0]) await generateMonthlyInvoices(tenantId, monthStart(back));
+
+  // The oldest invoice was paid; last month's one of Turia was not, and is now overdue.
+  const oldest = await prisma.invoice.findFirst({
+    where: {
+      tenantId,
+      billingMonth: monthStart(2).slice(0, 7),
+      status: { in: ['ISSUED', 'OVERDUE'] },
+    },
+  });
+  if (oldest) await markInvoicePaid(tenantId, oldest.id, 'SEPA_DEBIT');
+  const bicis = await prisma.invoice.findFirst({
+    where: {
+      tenantId,
+      billingMonth: monthStart(1).slice(0, 7),
+      client: { legalName: 'Bicis Malvarrosa, S.L.' },
+      status: { in: ['ISSUED', 'OVERDUE'] },
+    },
+  });
+  if (bicis) await markInvoicePaid(tenantId, bicis.id, 'CARD');
+  await runDunning(tenantId, today);
+}
+
 async function upsertUser(
   tenantId: string | null,
   email: string,
@@ -668,8 +744,14 @@ async function main() {
 
   const perez = await prisma.tenant.upsert({
     where: { slug: 'perez' },
+    // Legal data is repeated here so databases seeded by earlier phases get it too: invoices need it.
     update: {
       status: 'ACTIVE',
+      legalName: 'Pérez & Asociados Gestoría, S.L.',
+      addressLine: 'C/ Colón, 12, 2.º',
+      postalCode: '46004',
+      city: 'Valencia',
+      province: 'Valencia',
       branding: { primaryColor: '#0f4c81', accentColor: '#0f766e', senderName: 'Gestoría Pérez' },
     },
     create: {
@@ -724,6 +806,8 @@ async function main() {
       tags: demo.tags ?? [],
       taxProfileId: profile.id,
       assignedManagerId: managers[demo.manager].id,
+      addressLine: 'C/ de la Demostración, 1',
+      postalCode: '46001',
       city: 'Valencia',
       province: 'Valencia',
     };
@@ -759,6 +843,7 @@ async function main() {
   });
 
   await seedFiledObligations(perez.id, marta.id, managers.gestor.id);
+  await seedBilling(perez.id, today);
   await seedCommunication(perez.id, marta.id, managers.gestor.id, supervisor.id, cliente.id);
 
   // Checklists of the period being collected, ticked from the demo documents.

@@ -17,6 +17,10 @@ Object.assign(process.env, {
   // The real extractor only runs when asked for explicitly: it costs money.
   ANTHROPIC_API_KEY: process.env.RUN_AI_EXTRACTION_TEST ? process.env.ANTHROPIC_API_KEY : '',
   VERCEL_TOKEN: '',
+  STRIPE_SECRET_KEY: '',
+  STRIPE_WEBHOOK_SECRET: 'whsec_test_stripe',
+  GOCARDLESS_ACCESS_TOKEN: '',
+  GOCARDLESS_WEBHOOK_SECRET: 'gc_test_secret',
   VAPID_PUBLIC_KEY: '',
   DEMO_MODE: 'false',
 });

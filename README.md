@@ -8,10 +8,10 @@ summary and permission matrix are in [`docs/foundation.md`](docs/foundation.md);
 each decision is in [`docs/adr/`](docs/adr). Known shortcuts live in
 [`docs/tech-debt.md`](docs/tech-debt.md).
 
-**Status: phase 7 of 10.** Sign-up and onboarding, clients and tax obligations,
+**Status: phase 8 of 10.** Sign-up and onboarding, clients and tax obligations,
 document intake with a manager inbox, checklists with a traffic light, filings, daily reminders, messaging
 (also by replying to emails), a notification centre with web push, and deliveries with simple signature.
-White label is complete (logo, favicon, colours with contrast check, sender name, custom domain, sending domain, editable emails). AI extraction of invoices and the accounting export are in. Still to come: billing (8),
+White label is complete (logo, favicon, colours with contrast check, sender name, custom domain, sending domain, editable emails). AI extraction of invoices and the accounting export are in. Billing of the gestoría to its clients is in. Still to come:
 2FA, rate limiting, CSP and GDPR operations (9), PWA/offline and polish (10). **Do not onboard real gestorías
 before phase 9**: staff 2FA and rate limiting are not in place yet (TD-001, TD-002).
 
@@ -76,25 +76,26 @@ Tests need `docker compose up -d` (Postgres). They never touch the development d
 Validated with Zod in [`src/env.ts`](src/env.ts); the app, the build and the tests refuse to start
 with an incomplete configuration. Never read `process.env` elsewhere (ESLint enforces it).
 
-| Variable                                                                            | Required | Notes                                                                                                                                       |
-| ----------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                                      | yes      | Pooled connection in production (Neon)                                                                                                      |
-| `DIRECT_URL`                                                                        | yes      | Direct connection for migrations. Same as `DATABASE_URL` in development                                                                     |
-| `REDIS_URL`                                                                         | yes      | Redis in Docker / Upstash                                                                                                                   |
-| `AUTH_SECRET`                                                                       | yes      | ≥ 32 chars. `openssl rand -base64 32`                                                                                                       |
-| `APP_DOMAIN`                                                                        | yes      | Platform base domain. Tenants live on `<slug>.<APP_DOMAIN>`                                                                                 |
-| `DEFAULT_TENANT_SLUG`                                                               | no       | Serves one tenant on the bare `APP_DOMAIN` (which otherwise is the platform host)                                                           |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | yes      | MinIO in development, Cloudflare R2 in production                                                                                           |
-| `RESEND_API_KEY`                                                                    | no       | Without it, emails go to `email_log` + console                                                                                              |
-| `EMAIL_FROM`                                                                        | no       | Default `no-reply@localhost`                                                                                                                |
-| `CLAMAV_HOST`, `CLAMAV_PORT`                                                        | no       | clamd address. Empty = development fake scanner                                                                                             |
-| `RESEND_WEBHOOK_SECRET`                                                             | no       | Signing secret of the Resend inbound webhook. Empty = only the unsigned development payload is accepted, and never in production            |
-| `INBOUND_EMAIL_DOMAIN`                                                              | no       | Domain of the per-client addresses `<slug>-<code>@…`. Default `docs.localhost`                                                              |
-| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`                                              | no       | AI extraction of invoice fields (default model `claude-opus-5`). Empty key = development parser that only reads the synthetic demo invoices |
-| `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `PLATFORM_CNAME_TARGET`                        | no       | Attach verified custom domains to the Vercel project (SSL). Empty = verified by TXT, attach by hand                                         |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                             | no       | Web push. `npx web-push generate-vapid-keys`. Empty = pushes are only logged                                                                |
-| `DEMO_MODE`                                                                         | no       | `true` shows the demo banner and demo users on the login page                                                                               |
-| `SENTRY_DSN`                                                                        | no       | Not wired yet (TD-011)                                                                                                                      |
+| Variable                                                                                             | Required | Notes                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                                                       | yes      | Pooled connection in production (Neon)                                                                                                      |
+| `DIRECT_URL`                                                                                         | yes      | Direct connection for migrations. Same as `DATABASE_URL` in development                                                                     |
+| `REDIS_URL`                                                                                          | yes      | Redis in Docker / Upstash                                                                                                                   |
+| `AUTH_SECRET`                                                                                        | yes      | ≥ 32 chars. `openssl rand -base64 32`                                                                                                       |
+| `APP_DOMAIN`                                                                                         | yes      | Platform base domain. Tenants live on `<slug>.<APP_DOMAIN>`                                                                                 |
+| `DEFAULT_TENANT_SLUG`                                                                                | no       | Serves one tenant on the bare `APP_DOMAIN` (which otherwise is the platform host)                                                           |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`                  | yes      | MinIO in development, Cloudflare R2 in production                                                                                           |
+| `RESEND_API_KEY`                                                                                     | no       | Without it, emails go to `email_log` + console                                                                                              |
+| `EMAIL_FROM`                                                                                         | no       | Default `no-reply@localhost`                                                                                                                |
+| `CLAMAV_HOST`, `CLAMAV_PORT`                                                                         | no       | clamd address. Empty = development fake scanner                                                                                             |
+| `RESEND_WEBHOOK_SECRET`                                                                              | no       | Signing secret of the Resend inbound webhook. Empty = only the unsigned development payload is accepted, and never in production            |
+| `INBOUND_EMAIL_DOMAIN`                                                                               | no       | Domain of the per-client addresses `<slug>-<code>@…`. Default `docs.localhost`                                                              |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `GOCARDLESS_ACCESS_TOKEN`, `GOCARDLESS_WEBHOOK_SECRET` | no       | Card and SEPA payments. Empty keys = payments are simulated; webhooks always require their secret                                           |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`                                                               | no       | AI extraction of invoice fields (default model `claude-opus-5`). Empty key = development parser that only reads the synthetic demo invoices |
+| `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `PLATFORM_CNAME_TARGET`                                         | no       | Attach verified custom domains to the Vercel project (SSL). Empty = verified by TXT, attach by hand                                         |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                                              | no       | Web push. `npx web-push generate-vapid-keys`. Empty = pushes are only logged                                                                |
+| `DEMO_MODE`                                                                                          | no       | `true` shows the demo banner and demo users on the login page                                                                               |
+| `SENTRY_DSN`                                                                                         | no       | Not wired yet (TD-011)                                                                                                                      |
 
 ### External services and their development fakes
 
@@ -220,6 +221,16 @@ Behind a reverse proxy other than Vercel, make sure it **overwrites `X-Forwarded
 reads it before `Host` (TD-047).
 
 See ADR 0021–0023.
+
+## Billing
+
+Monthly fees per client are invoiced by the daily job on day 1. Invoices are numbered when issued, inside a
+transaction that locks the series row (no gaps, no duplicates), chained by hash (`InvoiceCompliance`, ready for
+Verifactu) and rendered to PDF with the legally required content. Cancelling issues a rectifying invoice. Clients
+pay by card (Stripe Checkout) or SEPA debit (GoCardless) through `PaymentProvider`; webhooks
+(`/api/webhooks/stripe`, `/api/webhooks/gocardless`) verify the signature and process each event once. Unpaid
+invoices: overdue → reminders at 3/10/20 days → `DELINQUENT` at 30 (uploads allowed, downloads blocked except
+their invoices). See ADR 0027.
 
 ## AI extraction and accounting export
 

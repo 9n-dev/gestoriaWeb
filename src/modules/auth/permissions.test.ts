@@ -99,6 +99,7 @@ describe('can()', () => {
     expect(can(clientUser, 'document.download', delinquent)).toBe(false);
     expect(can(clientUser, 'delivery.download', delinquent)).toBe(false);
     expect(can(manager, 'document.download', delinquent)).toBe(true);
+    expect(can(clientUser, 'invoice.download', delinquent)).toBe(true); // they need it to pay
   });
 
   it('a closed period blocks client uploads, not staff uploads', () => {
