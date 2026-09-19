@@ -11,24 +11,23 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-014 | — | **Prisma 6 → 8 upgrade** once v8 is stable (ADR 0011). ESLint 9 and TypeScript 5.9 are pinned for `eslint-config-next@15` compatibility. |
 | TD-015 | — | **MinIO image comes from quay.io**: MinIO stopped publishing to Docker Hub. Revisit if quay.io images stop too (any S3-compatible server works). |
 | TD-016 | — | **Client import is CSV only** (ADR 0014). XLSX needs a large dependency. |
-| TD-018 | 9 | **`/registro` has no rate limit or captcha**: anyone can create pending tenants and trigger verification emails. Pending tenants that never verify are not cleaned up (add to the TD-013 job). |
+| TD-018 | — | **`/registro` has no captcha.** It is rate limited per IP since phase 9 (10 per hour) and pending tenants that never verify are swept after 7 days, but a distributed script can still create pending tenants and trigger verification emails. |
 | TD-019 | — | **K/L/M NIFs are accepted by format only** (`lib/tax-id.ts`); their control character is not checked. |
-| TD-020 | 9 | **Staff cannot be disabled, re-roled or removed from the UI**, and client users cannot be unlinked (`client.removeUser` exists in the matrix, no service yet). Invitation and listing are done. |
+| TD-020 | — | **Staff cannot be disabled, re-roled or removed from the UI**, and client users cannot be unlinked (`client.removeUser` exists in the matrix, no service yet). Invitation and listing are done. |
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
 | TD-026 | — | **Client list filters in memory** (`q` search over the scoped list). Fine for hundreds of clients per tenant; move to SQL with pagination if a tenant grows past that. |
 | TD-027 | 5 | **Resend inbound adapter is untested against a live account.** Signature verification and routing are covered; the attachment download endpoint in `inbound/resend.ts` was written from the published API and must be verified with the first real domain. |
 | TD-031 | — | **Inbound attachments under 5 KB are skipped** as signature logos (`inbound/service.ts`). Replace with Content-Disposition/Content-ID once the provider exposes them. |
 | TD-033 | — | **The inbox loads at most 300 documents** and filters in one query without pagination. |
-| TD-034 | 9 | **`/api/webhooks/resend-inbound` and `/api/uploads` are not rate limited.** |
 | TD-035 | — | **E2E runs against the development database** locally (it re-seeds and leaves its uploads and test tenants behind). CI uses a fresh database. |
 | TD-037 | — | **The traffic-light overview is quarterly.** Clients with monthly VAT keep monthly checklists and are not listed in the quarter view. |
 | TD-038 | — | **Dashboard numbers are computed on every visit** (overview of all clients in memory; average over the last 2 000 processed documents). Cache or pre-aggregate if a tenant grows large. |
 | TD-041 | — | **Failed-jobs panel has no pagination or bulk retry**: first 100 per queue. |
-| TD-042 | 9 | **Reply-by-email trusts the From address plus the thread token** (ADR 0022). Enforce DMARC on the inbound domain when it is connected. |
+| TD-042 | — | **Reply-by-email trusts the From address plus the thread token** (ADR 0022). Enforce DMARC on the inbound domain when it is connected. |
 | TD-043 | — | **Counters refresh on navigation only**: the bell and unread threads are server-rendered, there is no polling or live update. |
 | TD-044 | — | **Attachments are added after the message is sent** (15-minute window, author only). An attachment that fails leaves a message without it and a warning to the author. |
 | TD-046 | — | **Every staff participant of a thread is notified of each new message**; there is no per-thread mute. |
-| TD-047 | 9 | **The proxy in front of the app must overwrite `X-Forwarded-Host`** (tenant resolution reads it first). Vercel does; document it for any other deployment. |
+| TD-047 | — | **The proxy in front of the app must overwrite `X-Forwarded-Host`** (tenant resolution reads it first). Vercel does; document it for any other deployment. |
 | TD-048 | — | **i18n covers the shared header only.** `lib/i18n` and the five dictionaries exist; page copy is still inline Spanish and there is no locale switch (`User.locale` is stored but unused). |
 | TD-049 | — | **Vercel and Resend domain adapters are untested against live accounts** (same situation as TD-027). The flows are covered with injected providers and DNS resolvers. |
 | TD-050 | — | **Brand colours are validated against the light theme only**; in dark mode the tenant colours are used as they are. |
@@ -84,3 +83,4 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-011 | phase 10 | Error reporting to any Sentry-compatible service through the envelope endpoint, without SDK (`lib/report-error.ts`, `instrumentation.ts`). |
 | TD-029 | phase 10 | Offline upload queue in IndexedDB: files survive a lost connection, a closed page or a restart and are sent (resumed) on the next online visit. E2E covered. |
 | TD-040 | phase 10 | `demo-reset` job at 04:00 when `DEMO_MODE`: physically deletes the demo tenants and runs the seed again. |
+| TD-034 | phase 9 | `/api/uploads` (per user) and the three webhooks (per IP) are rate limited. |
