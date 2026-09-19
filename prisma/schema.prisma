@@ -736,20 +736,22 @@ model Obligation {
 }
 
 model ChecklistItem {
-  id           String              @id @default(cuid())
-  tenantId     String
-  tenant       Tenant              @relation(fields: [tenantId], references: [id])
-  clientId     String
-  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  periodId     String
-  period       Period              @relation(fields: [periodId], references: [id])
-  documentType DocumentType
-  label        String? // custom text for manual items
-  source       ChecklistItemSource @default(AUTO)
-  fulfilled    Boolean             @default(false)
-  fulfilledAt  DateTime?
-  dismissedAt  DateTime? // manager removed an AUTO item; survives regeneration
-  createdAt    DateTime            @default(now())
+  id                String              @id @default(cuid())
+  tenantId          String
+  tenant            Tenant              @relation(fields: [tenantId], references: [id])
+  clientId          String
+  client            Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periodId          String
+  period            Period              @relation(fields: [periodId], references: [id])
+  documentType      DocumentType
+  label             String? // custom text for manual items
+  source            ChecklistItemSource @default(AUTO)
+  fulfilled         Boolean             @default(false)
+  fulfilledAt       DateTime?
+  // Ticked by a manager ("no invoices this quarter"): document changes never untick it.
+  fulfilledManually Boolean             @default(false)
+  dismissedAt       DateTime? // manager removed an AUTO item; survives regeneration
+  createdAt         DateTime            @default(now())
 
   @@index([tenantId, periodId, fulfilled]) // tenant-wide traffic-light view
   @@index([clientId, periodId])

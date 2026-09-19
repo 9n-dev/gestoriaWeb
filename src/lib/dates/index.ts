@@ -21,6 +21,10 @@ export function addDays(iso: IsoDate, days: number): IsoDate {
   return isoDate(date);
 }
 
+/** Whole days from `from` to `to` (negative when `to` is in the past). */
+export const daysBetween = (from: IsoDate, to: IsoDate): number =>
+  Math.round((toDateOnly(to).getTime() - toDateOnly(from).getTime()) / 86_400_000);
+
 /** Saturdays, Sundays and the given holidays are non-business days (art. 30 Ley 39/2015). */
 export function isBusinessDay(iso: IsoDate, holidays: ReadonlySet<IsoDate>): boolean {
   const weekday = toDateOnly(iso).getUTCDay();

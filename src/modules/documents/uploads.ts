@@ -16,6 +16,7 @@ import {
   presignPart,
 } from '@/lib/storage/multipart';
 import { recordAudit } from '@/modules/audit/service';
+import { refreshChecklist } from '@/modules/checklists/sync';
 import {
   assertCan,
   can,
@@ -243,6 +244,7 @@ export async function completeUpload(
     entityId: file.id,
     diff: { clientId: file.clientId, name: file.originalName, sizeBytes },
   });
+  await refreshChecklist(file.tenantId, file.clientId, [file.periodId]);
   await enqueue(QUEUES.files, 'process', { tenantId: file.tenantId, fileId: file.id }, file.id);
   return { fileId };
 }

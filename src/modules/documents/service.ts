@@ -5,6 +5,7 @@ import { toDateOnly } from '@/lib/dates';
 import { AppError } from '@/lib/errors';
 import { signedDownloadUrl } from '@/lib/storage/multipart';
 import { recordAudit } from '@/modules/audit/service';
+import { refreshChecklist } from '@/modules/checklists/sync';
 import {
   assertCan,
   can,
@@ -44,6 +45,7 @@ const documentSelect = {
   vatAmount: true,
   total: true,
   extractionConfirmed: true,
+  periodId: true,
   period: { select: { year: true, type: true, ordinal: true } },
   file: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, status: true } },
   client: { select: { id: true, legalName: true, assignedManagerId: true, status: true } },
@@ -164,6 +166,7 @@ async function transition(
     entityId: document.id,
     diff: { before: document.status, after: status },
   });
+  await refreshChecklist(document.tenantId, document.clientId, [document.periodId]);
 }
 
 /**
@@ -197,12 +200,13 @@ export async function updateDocumentFields(
         })
       : null;
 
+  const periodId = period ? (await ensurePeriod(period)).id : null;
   await db.document.update({
     where: { id },
     data: {
       ...fields,
       invoiceDate: invoiceDate ? toDateOnly(invoiceDate) : null,
-      periodId: period ? (await ensurePeriod(period)).id : null,
+      periodId,
       status: document.status === 'RECEIVED' ? 'IN_REVIEW' : document.status,
       duplicateOfId: twin?.id ?? null,
     },
@@ -215,6 +219,7 @@ export async function updateDocumentFields(
     entityId: id,
     diff: { ...fields, invoiceDate, possibleDuplicateOfId: twin?.id ?? null },
   });
+  await refreshChecklist(document.tenantId, document.clientId, [document.periodId, periodId]);
   return { possibleDuplicateOfId: twin?.id ?? null };
 }
 
@@ -317,6 +322,7 @@ export async function deleteDocument(user: SessionUser, id: string): Promise<voi
     where: { id },
     data: { deletedAt: new Date() },
   });
+  await refreshChecklist(document.tenantId, document.clientId, [document.periodId]);
   await recordAudit({
     tenantId: document.tenantId,
     actor: user,

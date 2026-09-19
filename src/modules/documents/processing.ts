@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { tenantDb } from '@/lib/db';
 import { sniffDocumentType } from '@/lib/files/sniff';
 import { recordAudit } from '@/modules/audit/service';
+import { refreshChecklist } from '@/modules/checklists/sync';
 import { notifyClientUsers } from '@/modules/messaging/notifications';
 import type { VirusScanner } from './antivirus';
 
@@ -73,6 +74,7 @@ export async function processFile(
         body: `${reason}. Vuelve a enviarlo como foto (JPG, PNG, HEIC) o PDF.`,
         link: '/documentos',
       });
+      await refreshChecklist(tenantId, file.document.clientId, [file.document.periodId]);
     }
     return;
   }
@@ -133,6 +135,7 @@ export async function processFile(
         entityId: file.document.id,
         diff: { duplicateOfId: twin.id, by: 'sha256' },
       });
+      await refreshChecklist(tenantId, file.document.clientId, [file.document.periodId]);
     }
   }
 }
