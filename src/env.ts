@@ -39,6 +39,14 @@ const schema = z.object({
     z.string().default('docs.localhost'),
   ),
 
+  // Custom domains: Vercel project that serves the app. Empty = domains are verified but not attached.
+  VERCEL_TOKEN: optional(z.string()),
+  VERCEL_PROJECT_ID: optional(z.string()),
+  PLATFORM_CNAME_TARGET: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().default('cname.vercel-dns.com'),
+  ),
+
   // Web push (VAPID). Generate with `npx web-push generate-vapid-keys`. Empty = pushes are only logged.
   VAPID_PUBLIC_KEY: optional(z.string()),
   VAPID_PRIVATE_KEY: optional(z.string()),
