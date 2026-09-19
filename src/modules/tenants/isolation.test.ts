@@ -11,6 +11,10 @@ import {
   listUpcomingObligations,
   startObligation,
 } from '@/modules/obligations/workflow';
+import { listDeliveries, signDelivery } from '@/modules/deliveries/service';
+import { listNotifications } from '@/modules/messaging/notifications';
+import { getThread, listThreads, sendMessage } from '@/modules/messaging/service';
+import { listMessageTemplates } from '@/modules/messaging/templates';
 import { getClientFor, listAssignableManagers, listClientsFor } from '@/modules/clients/service';
 import { listTaxProfiles } from '@/modules/clients/tax-profiles/service';
 import { listPermanentDocuments } from '@/modules/documents/permanent';
@@ -169,6 +173,28 @@ describe('tenant isolation', () => {
           deadlinesThisWeek: 0,
         });
       }
+    });
+
+    it('messaging, deliveries and notifications: nothing of B can be read, written or signed from A', async () => {
+      const delivery = await prisma.delivery.findFirstOrThrow({ where: { tenantId: b } });
+      for (const user of usersOfA) {
+        expect(await listThreads(user), user.role).toEqual([]);
+        await expect(getThread(user, worldB.thread.id), user.role).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+        await expect(sendMessage(user, worldB.thread.id, 'hola'), user.role).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+        await expect(listDeliveries(user, worldB.client.id), user.role).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+        await expect(
+          signDelivery(user, delivery.id, true, { ip: null, userAgent: null }),
+          user.role,
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        expect(await listNotifications(user), user.role).toEqual([]);
+      }
+      expect(await listMessageTemplates(usersOfA[1]!)).toEqual([]);
     });
 
     it('audit: the admin of A sees no entry of B', async () => {

@@ -1,5 +1,7 @@
 # Phase 5 — Messaging, notifications, deliveries and simple signature
 
+> **Status: completed 2026-09-19** on branch `phase-5`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Gestoría and client talk inside the portal (and by replying to its emails), everybody has a notification centre with a counter, preferences and web push, and the gestoría delivers documents that the client can sign with a verifiable certificate. Closes the minimum sellable product (phases 1–5).
