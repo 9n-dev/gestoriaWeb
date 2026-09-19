@@ -78,7 +78,7 @@ export function BrandingForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="logo" className="text-sm font-medium">
-            Logo (PNG, JPG o WebP, máximo 1 MB)
+            Logo (PNG o JPG, máximo 1 MB)
           </label>
           <input
             id="logo"
@@ -90,8 +90,8 @@ export function BrandingForm({
             onChange={(event) => void normaliseLogoInput(event.currentTarget)}
           />
           <p id="logo-hint" className="text-sm text-fg-muted">
-            También encabeza tus facturas y certificados de firma. Si hace falta, lo convertimos a
-            PNG al elegirlo.
+            También encabeza tus facturas y certificados de firma. Si eliges un WebP o una imagen
+            muy grande, la convertimos a PNG antes de subirla.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -104,6 +104,7 @@ export function BrandingForm({
             type="file"
             accept="image/png,image/jpeg,image/webp"
             className="text-sm"
+            onChange={(event) => void normaliseLogoInput(event.currentTarget)}
           />
         </div>
       </div>

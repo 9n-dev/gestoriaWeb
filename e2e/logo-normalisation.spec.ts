@@ -1,15 +1,9 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { login, prisma } from './helpers';
 
-// ADR 0035: PDFs can only embed PNG and JPEG, so a WebP logo is turned into a PNG in the browser.
-test('a WebP logo is converted to PNG on the way up, keeping its transparency', async ({
-  page,
-}) => {
-  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: 'perez' } });
-  await login(page, 'admin@demo.es');
-  await page.goto('/panel/ajustes/marca');
-
-  const webp = await page.evaluate(async () => {
+/** A real WebP with transparent corners, made by the browser itself. */
+const makeWebp = (page: Page) =>
+  page.evaluate(async () => {
     const canvas = document.createElement('canvas');
     canvas.width = 300;
     canvas.height = 80;
@@ -23,6 +17,16 @@ test('a WebP logo is converted to PNG on the way up, keeping its transparency', 
     );
     return [...new Uint8Array(await blob.arrayBuffer())];
   });
+
+// ADR 0035: PDFs can only embed PNG and JPEG, so a WebP logo is turned into a PNG in the browser.
+test('a WebP logo is converted to PNG on the way up, keeping its transparency', async ({
+  page,
+}) => {
+  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: 'perez' } });
+  await login(page, 'admin@demo.es');
+  await page.goto('/panel/ajustes/marca');
+
+  const webp = await makeWebp(page);
   expect(String.fromCharCode(...webp.slice(8, 12))).toBe('WEBP');
 
   const input = page.getByLabel(/^Logo/);
@@ -48,4 +52,22 @@ test('a WebP logo is converted to PNG on the way up, keeping its transparency', 
     where: { id: tenant.id },
     data: { branding: tenant.branding ?? {} },
   });
+});
+
+// The server takes PNG and JPEG only: if a browser cannot convert, the admin is told what to do.
+test('a WebP that the browser could not convert is refused with a clear message', async ({
+  page,
+}) => {
+  await login(page, 'admin@demo.es');
+  await page.addInitScript(() => {
+    window.createImageBitmap = () => Promise.reject(new Error('disabled for the test'));
+  });
+  await page.goto('/panel/ajustes/marca');
+  await page.getByLabel(/^Logo/).setInputFiles({
+    name: 'logo.webp',
+    mimeType: 'image/webp',
+    buffer: Buffer.from(await makeWebp(page)),
+  });
+  await page.getByRole('button', { name: 'Guardar marca' }).click();
+  await expect(page.getByText('El logo debe ser una imagen PNG o JPG.')).toBeVisible();
 });

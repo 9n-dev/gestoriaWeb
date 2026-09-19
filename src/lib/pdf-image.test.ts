@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { crc32, deflateSync, inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { PdfDocument } from './pdf';
@@ -68,6 +69,7 @@ function png(options: {
   );
 }
 const pixels = (data: Uint8Array) => [...inflateSync(data)];
+const fixture = (name: string) => new Uint8Array(readFileSync(`fixtures/logos/${name}`));
 
 describe('pdf images', () => {
   it('decodes RGBA through every PNG filter and splits colour from alpha', () => {
@@ -196,13 +198,57 @@ describe('pdf images', () => {
     });
     expect(image.data).toBe(jpeg);
 
-    const cmyk = jpeg.slice();
-    cmyk[17] = 4;
-    expect(pdfImageFrom(cmyk)).toBeNull();
+    const fiveChannels = jpeg.slice();
+    fiveChannels[17] = 5;
+    expect(pdfImageFrom(fiveChannels)).toBeNull();
+  });
+
+  it('embeds a CMYK JPEG from a print tool with its channels inverted back', () => {
+    const image = pdfImageFrom(fixture('cmyk.jpg'))!;
+    expect(image).toMatchObject({
+      width: 64,
+      height: 24,
+      colorSpace: 'DeviceCMYK',
+      filter: 'DCTDecode',
+      decode: '[1 0 1 0 1 0 1 0]',
+    });
+    const document = new PdfDocument();
+    document.addPage().image(document.addImage(image), 0, 0, 64, 24);
+    expect(Buffer.from(document.build()).toString('latin1')).toContain(
+      '/ColorSpace /DeviceCMYK /Filter /DCTDecode /Decode [1 0 1 0 1 0 1 0]',
+    );
+  });
+
+  it('decodes Adam7 interlaced PNGs (written by ImageMagick) to the very same pixels as the plain file', () => {
+    for (const kind of ['rgba', 'palette']) {
+      const plain = pdfImageFrom(fixture(`plain-${kind}.png`))!;
+      const interlaced = pdfImageFrom(fixture(`interlaced-${kind}.png`))!;
+      expect(interlaced).toMatchObject({ width: 37, height: 23 });
+      expect(pixels(interlaced.data), kind).toEqual(pixels(plain.data));
+      if (plain.alpha) expect(pixels(interlaced.alpha!), kind).toEqual(pixels(plain.alpha));
+    }
+    expect(pdfImageFrom(fixture('plain-rgba.png'))!.alpha).toBeDefined();
+  });
+
+  it('shrinks a big logo to print size, averaging colour by alpha so transparent pixels do not stain the edges', () => {
+    // 1600 px wide: left half opaque red, right half transparent GREEN (a colour nobody should see).
+    const width = 1600;
+    const row = Array.from({ length: width }, (_, x) =>
+      x < 800 ? [255, 0, 0, 255] : [0, 255, 0, 0],
+    ).flat();
+    const image = pdfImageFrom(
+      png({ width, height: 4, depth: 8, type: 6, rows: [row, row, row, row], bpp: 4 }),
+    )!;
+    expect(image).toMatchObject({ width: 800, height: 2 }); // factor 2: 1600 / 720
+    const rgb = pixels(image.data);
+    const alpha = pixels(image.alpha!);
+    expect(rgb.slice(0, 3)).toEqual([255, 0, 0]);
+    expect(alpha[0]).toBe(255);
+    expect(alpha[799]).toBe(0);
+    expect(rgb.filter((_, i) => i % 3 === 1).every((green) => green === 0)).toBe(true);
   });
 
   it('answers null, never throws, for what it cannot handle', () => {
-    const interlaced = png({ width: 1, height: 1, depth: 8, type: 0, rows: [[1]], interlace: 1 });
     const truncated = png({
       width: 1,
       height: 1,
@@ -213,14 +259,7 @@ describe('pdf images', () => {
     }).slice(0, 40);
     const webp = new Uint8Array(Buffer.from('RIFF\0\0\0\0WEBPVP8 ', 'latin1'));
     const huge = png({ width: 5000, height: 5000, depth: 8, type: 0, rows: [[1]] });
-    for (const bytes of [
-      interlaced,
-      truncated,
-      webp,
-      huge,
-      new Uint8Array([1, 2, 3]),
-      new Uint8Array(),
-    ]) {
+    for (const bytes of [truncated, webp, huge, new Uint8Array([1, 2, 3]), new Uint8Array()]) {
       expect(pdfImageFrom(bytes)).toBeNull();
     }
   });
