@@ -11,6 +11,7 @@ import {
   resolveTemplate,
 } from '@/modules/obligations/reminders/templates';
 import { hashPassword, verifyPassword } from './password';
+import { twoFactorState, type TwoFactorState } from './two-factor/service';
 import type { SessionUser } from './permissions';
 import { emailSchema } from './schema';
 
@@ -22,7 +23,14 @@ const CLIENT_SESSION_MS = 30 * 24 * 3_600_000;
 const LAST_SEEN_THROTTLE_MS = 10 * 60_000;
 
 export type LoginMethod = 'password' | 'magic-link';
-export type AuthenticatedUser = SessionUser & { name: string; email: string };
+export type AuthenticatedUser = SessionUser & {
+  name: string;
+  email: string;
+  sessionId: string;
+  /** 'enrol' and 'challenge' users are authenticated but may only reach the 2FA screens. */
+  twoFactor: TwoFactorState;
+  totpEnabled: boolean;
+};
 
 const invalidCredentials = (detail: string) =>
   new AppError('UNAUTHENTICATED', 'Correo o contraseña incorrectos.', detail);
@@ -173,6 +181,9 @@ export async function loadSessionUser(
     supportTenantIds: [...new Set(grants.map((grant) => grant.tenantId))],
     name: user.name,
     email: user.email,
+    sessionId: session.id,
+    twoFactor: twoFactorState(user, session),
+    totpEnabled: user.totpEnabledAt !== null,
   };
 }
 

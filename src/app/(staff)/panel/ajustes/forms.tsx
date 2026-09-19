@@ -8,6 +8,7 @@ import {
   createSampleDataAction,
   deleteSampleDataAction,
   inviteStaffAction,
+  resetTwoFactorAction,
   updateBrandingAction,
   updateTenantProfileAction,
 } from './actions';
@@ -154,6 +155,23 @@ export function InviteStaffForm() {
       </div>
       <SubmitButton variant="secondary" pendingLabel="Enviando…">
         Enviar invitación
+      </SubmitButton>
+    </ActionForm>
+  );
+}
+
+export function ResetTwoFactorForm({ staff }: { staff: Array<{ id: string; name: string }> }) {
+  return (
+    <ActionForm action={resetTwoFactorAction} className="flex max-w-md flex-col gap-4">
+      <SelectField label="Persona" name="userId" required>
+        {staff.map((person) => (
+          <option key={person.id} value={person.id}>
+            {person.name}
+          </option>
+        ))}
+      </SelectField>
+      <SubmitButton variant="secondary" pendingLabel="Restableciendo…">
+        Restablecer verificación en dos pasos
       </SubmitButton>
     </ActionForm>
   );

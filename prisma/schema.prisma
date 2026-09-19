@@ -374,17 +374,19 @@ model User {
 // Credentials provider); the JWT carries this id and is checked on every request,
 // which gives us revocation and the 12h / 30d expiry per role.
 model UserSession {
-  id         String    @id @default(cuid())
-  tenantId   String?
-  tenant     Tenant?   @relation(fields: [tenantId], references: [id])
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ip         String?
-  userAgent  String?
-  createdAt  DateTime  @default(now())
-  lastSeenAt DateTime  @default(now())
-  expiresAt  DateTime
-  revokedAt  DateTime?
+  id                  String    @id @default(cuid())
+  tenantId            String?
+  tenant              Tenant?   @relation(fields: [tenantId], references: [id])
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip                  String?
+  userAgent           String?
+  createdAt           DateTime  @default(now())
+  lastSeenAt          DateTime  @default(now())
+  // Second factor passed in this session. Null = password only (staff cannot go past the challenge).
+  twoFactorVerifiedAt DateTime?
+  expiresAt           DateTime
+  revokedAt           DateTime?
 
   @@index([userId])
   @@index([tenantId])

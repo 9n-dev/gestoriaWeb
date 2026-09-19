@@ -43,3 +43,12 @@ export const formatLongDate = (date: Date | IsoDate): string =>
   new Intl.DateTimeFormat('es-ES', { dateStyle: 'long', timeZone: 'UTC' }).format(
     typeof date === 'string' ? toDateOnly(date) : date,
   );
+
+const DATE_TIME = new Intl.DateTimeFormat('es-ES', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: APP_TIME_ZONE,
+});
+
+/** "19 sept 2026, 16:20", always in Madrid time. */
+export const formatDateTime = (date: Date): string => DATE_TIME.format(date);

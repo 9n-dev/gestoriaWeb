@@ -150,6 +150,9 @@ describe('auth service', () => {
         supportTenantIds: [],
         name: user.name,
         email: user.email,
+        sessionId: session.id,
+        twoFactor: 'ok',
+        totpEnabled: false,
       });
     });
 
