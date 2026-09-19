@@ -14,5 +14,9 @@ Object.assign(process.env, {
   S3_ACCESS_KEY_ID: 'minioadmin',
   S3_SECRET_ACCESS_KEY: 'minioadmin',
   RESEND_API_KEY: '',
+  // The real extractor only runs when asked for explicitly: it costs money.
+  ANTHROPIC_API_KEY: process.env.RUN_AI_EXTRACTION_TEST ? process.env.ANTHROPIC_API_KEY : '',
+  VERCEL_TOKEN: '',
+  VAPID_PUBLIC_KEY: '',
   DEMO_MODE: 'false',
 });

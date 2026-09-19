@@ -39,6 +39,13 @@ const schema = z.object({
     z.string().default('docs.localhost'),
   ),
 
+  // AI extraction of invoice fields. Empty key = deterministic development extractor.
+  ANTHROPIC_API_KEY: optional(z.string()),
+  ANTHROPIC_MODEL: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().default('claude-opus-5'),
+  ),
+
   // Custom domains: Vercel project that serves the app. Empty = domains are verified but not attached.
   VERCEL_TOKEN: optional(z.string()),
   VERCEL_PROJECT_ID: optional(z.string()),

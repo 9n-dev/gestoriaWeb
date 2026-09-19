@@ -1,0 +1,72 @@
+[
+  {
+    "file": "invoice-01.pdf",
+    "date": "2026-07-31",
+    "total": 104.54,
+    "supplierTaxId": "B96000112",
+    "invoiceNumber": "EL-2026-071842"
+  },
+  {
+    "file": "invoice-02.pdf",
+    "date": "2026-07-28",
+    "total": 50,
+    "supplierTaxId": "B96000229",
+    "invoiceNumber": "TM-7731920"
+  },
+  {
+    "file": "invoice-03.pdf",
+    "date": "2026-09-10",
+    "total": 70.91,
+    "supplierTaxId": "B96000336",
+    "invoiceNumber": "2026/1093"
+  },
+  {
+    "file": "invoice-04.pdf",
+    "date": "2026-08-21",
+    "total": 387.2,
+    "supplierTaxId": "B96000443",
+    "invoiceNumber": "F26-0418"
+  },
+  {
+    "file": "invoice-05.pdf",
+    "date": "2026-06-02",
+    "total": 19.24,
+    "supplierTaxId": "B46000345",
+    "invoiceNumber": "A-000981"
+  },
+  {
+    "file": "invoice-06.pdf",
+    "date": "2026-05-17",
+    "total": 80,
+    "supplierTaxId": "B96000559",
+    "invoiceNumber": "T-44021"
+  },
+  {
+    "file": "invoice-07.pdf",
+    "date": "2026-01-15",
+    "total": 412,
+    "supplierTaxId": "A96000666",
+    "invoiceNumber": "POL-2026-5582"
+  },
+  {
+    "file": "invoice-08.pdf",
+    "date": "2026-09-01",
+    "total": 217.8,
+    "supplierTaxId": "B96000773",
+    "invoiceNumber": "CW-2026-09-017"
+  },
+  {
+    "file": "invoice-09.pdf",
+    "date": "2026-03-30",
+    "total": 1511.5,
+    "supplierTaxId": "B96000880",
+    "invoiceNumber": "INF/26/00231"
+  },
+  {
+    "file": "invoice-10.pdf",
+    "date": "2026-12-29",
+    "total": 2844.11,
+    "supplierTaxId": "B96000997",
+    "invoiceNumber": "000412"
+  }
+]
