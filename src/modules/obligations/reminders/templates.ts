@@ -13,6 +13,24 @@ export const reminderSettingsSchema = z.object({
     .max(6)
     .catch([60, 30, 7]),
 });
+/** For the settings form: invalid input is an error, not a silent default. */
+export const strictReminderSettingsSchema = z.object({
+  enabled: z.boolean(),
+  offsets: z
+    .array(
+      z.number('Los días deben ser números.').int().min(0).max(60, 'Como mucho 60 días antes.'),
+    )
+    .min(1, 'Indica al menos un aviso.')
+    .max(8)
+    .transform((offsets) => [...new Set(offsets)].sort((a, b) => b - a)),
+  inactivityDays: z.number('Indica un número de días.').int().min(0).max(365),
+  permanentExpiryOffsets: z
+    .array(z.number().int().min(1).max(180))
+    .min(1)
+    .max(6)
+    .default([60, 30, 7]),
+});
+
 export type ReminderSettings = z.infer<typeof reminderSettingsSchema>;
 export const parseReminderSettings = (value: unknown): ReminderSettings =>
   reminderSettingsSchema.parse(value && typeof value === 'object' ? value : {});

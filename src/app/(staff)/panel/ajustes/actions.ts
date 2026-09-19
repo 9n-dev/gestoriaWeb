@@ -18,6 +18,7 @@ import {
   createSampleData,
   deleteSampleData,
   updateBranding,
+  updateReminderSettings,
   updateTenantProfile,
 } from '@/modules/tenants/service';
 
@@ -174,5 +175,25 @@ export async function updateRejectionReasonsAction(
     await updateRejectionReasons(await requireUser(), reasons);
     revalidatePath('/panel/ajustes/documentos');
     return { success: 'Motivos guardados.' };
+  });
+}
+
+export async function updateReminderSettingsAction(
+  _: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    const values = formValues(formData);
+    await updateReminderSettings(await requireUser(), {
+      enabled: values.enabled === 'on',
+      offsets: (values.offsets ?? '')
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map(Number),
+      inactivityDays: Number(values.inactivityDays ?? ''),
+    });
+    revalidatePath('/panel/ajustes/recordatorios');
+    return { success: 'Recordatorios guardados.' };
   });
 }

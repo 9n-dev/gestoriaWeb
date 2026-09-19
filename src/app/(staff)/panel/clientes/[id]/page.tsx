@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { formatLongDate } from '@/lib/dates';
+import { formatLongDate, isoDate, todayInMadrid } from '@/lib/dates';
 import { CLIENT_STATUS, OBLIGATION_STATUS, USER_STATUS, periodLabel } from '@/lib/labels';
+import { relativeDays, resultLabel } from '@/lib/labels-obligations';
+import { recentQuarters } from '@/lib/periods';
+import { getClientChecklist } from '@/modules/checklists/service';
 import { DOCUMENT_STATUS, PERMANENT_CATEGORY, fileStatusNote } from '@/lib/labels-documents';
 import { requireArea } from '@/modules/auth/area';
 import { listClientUsers } from '@/modules/auth/invitations';
@@ -12,9 +15,11 @@ import { listTaxProfiles } from '@/modules/clients/tax-profiles/service';
 import { listInboundAddresses } from '@/modules/documents/inbound/service';
 import { listPermanentDocuments } from '@/modules/documents/permanent';
 import { listClientDocuments } from '@/modules/documents/service';
-import { modelName } from '@/modules/obligations/calendar';
+import { knownModels, modelName } from '@/modules/obligations/calendar';
 import { listClientObligations } from '@/modules/obligations/workflow';
 import { getCurrentTenant } from '@/modules/tenants/current';
+import { ChecklistSection } from './checklist-section';
+import { ObligationsSection } from './obligations-section';
 import { PermanentUpload } from './permanent-upload';
 import {
   DeletePermanentButton,
@@ -42,6 +47,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const resource = resourceOf(client);
 
   const tenant = await getCurrentTenant();
+  const today = todayInMadrid();
+  const checklist = await getClientChecklist(user, id, { today });
   const [obligations, documents, permanent, addresses, profiles, managers, users] =
     await Promise.all([
       listClientObligations(user, id),
@@ -83,43 +90,46 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         )}
       </div>
 
+      {checklist && (
+        <Section title="Documentación del periodo">
+          <ChecklistSection
+            clientId={id}
+            period={{
+              year: checklist.period.year,
+              type: checklist.period.type,
+              ordinal: checklist.period.ordinal,
+            }}
+            periodText={periodLabel(checklist.period)}
+            deadlineText={`${formatLongDate(checklist.deadline)} (${relativeDays(today, checklist.deadline)})`}
+            light={checklist.light}
+            closed={checklist.closed}
+            items={checklist.items}
+            canManage={can(user, 'checklist.manage', resource)}
+          />
+        </Section>
+      )}
+
       <Section title="Obligaciones fiscales">
-        {obligations.length === 0 ? (
-          <p className="text-fg-muted">Asigna un perfil fiscal para generar sus obligaciones.</p>
-        ) : (
-          <table className="w-full border-collapse text-left text-sm">
-            <caption className="sr-only">Próximas obligaciones del cliente</caption>
-            <thead>
-              <tr className="border-b border-border">
-                <th scope="col" className="py-2 pr-4 font-medium">
-                  Modelo
-                </th>
-                <th scope="col" className="py-2 pr-4 font-medium">
-                  Periodo
-                </th>
-                <th scope="col" className="py-2 pr-4 font-medium">
-                  Fecha límite
-                </th>
-                <th scope="col" className="py-2 font-medium">
-                  Estado
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {obligations.map((obligation) => (
-                <tr key={obligation.id} className="border-b border-border">
-                  <td className="py-2 pr-4">
-                    <span className="font-medium">{obligation.model}</span>{' '}
-                    <span className="text-fg-muted">{modelName(obligation.model)}</span>
-                  </td>
-                  <td className="py-2 pr-4">{periodLabel(obligation.period)}</td>
-                  <td className="py-2 pr-4">{formatLongDate(obligation.dueDate)}</td>
-                  <td className="py-2">{OBLIGATION_STATUS[obligation.status]}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <ObligationsSection
+          clientId={id}
+          canUpdate={can(user, 'obligation.update', resource)}
+          models={knownModels().map((model) => ({ model, name: modelName(model) }))}
+          periods={recentQuarters(today, 6)}
+          obligations={obligations.map((o) => ({
+            id: o.id,
+            model: o.model,
+            modelName: modelName(o.model),
+            periodText: periodLabel(o.period),
+            dueText: formatLongDate(o.dueDate),
+            relative: relativeDays(today, isoDate(o.dueDate)),
+            overdue: o.status !== 'FILED' && isoDate(o.dueDate) < today,
+            status: o.status,
+            statusText: OBLIGATION_STATUS[o.status],
+            estimate: o.estimatedAmount?.toString().replace('.', ',') ?? '',
+            resultText: resultLabel(o),
+            receiptFileId: o.receiptFile && !o.receiptFile.deletedAt ? o.receiptFile.id : null,
+          }))}
+        />
       </Section>
 
       <Section title="Documentos">

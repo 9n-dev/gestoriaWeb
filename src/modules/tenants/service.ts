@@ -9,6 +9,7 @@ import { env } from '@/env';
 import { recordAudit } from '@/modules/audit/service';
 import { assertCan, requireTenantId, type SessionUser } from '@/modules/auth/permissions';
 import { issueLoginToken } from '@/modules/auth/service';
+import { strictReminderSettingsSchema } from '@/modules/obligations/reminders/templates';
 import { syncObligationsForClient } from '@/modules/obligations/service';
 import { tenantBaseUrl } from './resolve';
 import {
@@ -297,6 +298,22 @@ export async function updateBranding(user: SessionUser, input: BrandingInput): P
     diff: branding,
   });
   return branding;
+}
+
+/** Reminder offsets, on/off switch and inactivity threshold (§6.6, §6.9). */
+export async function updateReminderSettings(user: SessionUser, input: unknown): Promise<void> {
+  assertCan(user, 'tenantSettings.manage');
+  const tenantId = requireTenantId(user);
+  const settings = strictReminderSettingsSchema.parse(input);
+  await prisma.tenant.update({ where: { id: tenantId }, data: { reminderSettings: settings } });
+  await recordAudit({
+    tenantId,
+    actor: user,
+    action: 'tenant.updateReminderSettings',
+    entity: 'Tenant',
+    entityId: tenantId,
+    diff: settings,
+  });
 }
 
 export async function completeOnboarding(user: SessionUser): Promise<void> {
