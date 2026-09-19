@@ -3,6 +3,7 @@ import { tenantDb } from '@/lib/db';
 import { sniffDocumentType } from '@/lib/files/sniff';
 import { recordAudit } from '@/modules/audit/service';
 import { refreshChecklist } from '@/modules/checklists/sync';
+import { announceDeliveries } from '@/modules/deliveries/service';
 import { notifyClientUsers } from '@/modules/messaging/notifications';
 import type { VirusScanner } from './antivirus';
 
@@ -105,6 +106,8 @@ export async function processFile(
       sizeBytes: bytes.length,
     },
   });
+
+  if (file.kind === 'DELIVERY') await announceDeliveries(tenantId, { fileId: file.id });
 
   if (file.document) {
     const twin = await db.document.findFirst({
