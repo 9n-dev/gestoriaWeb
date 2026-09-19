@@ -46,6 +46,11 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-053 | — | **One VAT rate per document.** Invoices with several rates store totals and the main rate. |
 | TD-054 | — | **No "extract again" button** for a document that failed or was read badly; the manager edits the fields. |
 | TD-055 | — | **Export has no vendor presets** (A3, Sage, Contasol…): columns and separator only. |
+| TD-056 | — | **Invoice PDF is plain text** (`lib/pdf.ts`): legally complete, visually poor, and the verification QR is printed as a URL, not as an image. A designed template needs a PDF library (ADR first). |
+| TD-057 | — | **Stripe and GoCardless adapters are untested against live accounts**; signatures and idempotency are covered with the documented schemes. There is no SEPA mandate set-up flow: `Client.gocardlessMandateId` must be filled by hand. |
+| TD-058 | — | **Billing settings have no UI** (`Tenant.settings.billing`: payment days, dunning days, delinquency threshold, series code). Defaults: 15, 3/10/20, 30, `A`. |
+| TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
+| TD-060 | — | **The new-invoice form takes three lines and one VAT rate**; the service accepts up to 50 lines with their own rates. |
 
 ## Closed
 

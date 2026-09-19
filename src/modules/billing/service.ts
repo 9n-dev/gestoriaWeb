@@ -160,11 +160,18 @@ async function createDraft(
 ): Promise<string> {
   const totals = computeTotals(input.lines);
   const db = tenantDb(tenantId);
-  const series = await db.invoiceSeries.upsert({
-    where: { tenantId_code: { tenantId, code: input.seriesCode } },
-    create: { tenantId, code: input.seriesCode },
-    update: {},
-  });
+  // Not an upsert: two first invoices created at once would race on the unique key.
+  const findSeries = () => db.invoiceSeries.findFirst({ where: { code: input.seriesCode } });
+  const series =
+    (await findSeries()) ??
+    (await db.invoiceSeries
+      .create({ data: { tenantId, code: input.seriesCode } })
+      .catch(async (error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
+          return findSeries();
+        throw error;
+      }));
+  if (!series) throw new AppError('INTERNAL', 'No se ha podido preparar la serie de facturación.');
   const invoice = await db.invoice.create({
     data: {
       tenantId,

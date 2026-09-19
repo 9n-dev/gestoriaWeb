@@ -11,6 +11,7 @@ const NAV = [
   { href: '/plazos', label: 'Plazos' },
   { href: '/mensajes', label: 'Mensajes' },
   { href: '/entregas', label: 'Entregas' },
+  { href: '/facturas', label: 'Facturas' },
 ];
 
 export default async function ClientLayout({ children }: { children: ReactNode }) {

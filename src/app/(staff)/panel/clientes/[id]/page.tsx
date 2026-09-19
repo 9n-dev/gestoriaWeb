@@ -29,7 +29,9 @@ import { listClientObligations } from '@/modules/obligations/workflow';
 import { getCurrentTenant } from '@/modules/tenants/current';
 import { ChecklistSection } from './checklist-section';
 import { ObligationsSection } from './obligations-section';
+import { listFees } from '@/modules/billing/service';
 import { DeliveryUpload } from './delivery-upload';
+import { FeesSection } from './fees-section';
 import { PermanentUpload } from './permanent-upload';
 import {
   DeleteDeliveryButton,
@@ -353,6 +355,23 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             clientId={id}
             defaultEmail={users.length ? '' : (client.email ?? '')}
             defaultName=""
+          />
+        </Section>
+      )}
+
+      {can(user, 'recurringFee.manage') && (
+        <Section title="Cuota mensual">
+          <FeesSection
+            clientId={id}
+            today={today}
+            fees={(await listFees(user, id)).map((fee) => ({
+              id: fee.id,
+              concept: fee.concept,
+              amount: fee.amount.toString().replace('.', ','),
+              vatRate: fee.vatRate.toString(),
+              irpfRate: fee.irpfRate.toString(),
+              active: fee.active,
+            }))}
           />
         </Section>
       )}
