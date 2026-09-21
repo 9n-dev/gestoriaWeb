@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { CSSProperties, ReactNode } from 'react';
 import { getCurrentTenant } from '@/modules/tenants/current';
-import { readableForeground } from '@/modules/branding/contrast';
+import { adaptForDarkTheme, readableForeground } from '@/modules/branding/contrast';
 import { parseBranding } from '@/modules/tenants/schema';
 import { env } from '@/env';
 import { RegisterServiceWorker } from '@/components/pwa/register';
@@ -35,15 +35,25 @@ export async function generateViewport(): Promise<Viewport> {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const branding = parseBranding((await getCurrentTenant())?.branding);
-  // Button text follows the brand colour so it stays legible whatever the tenant picks.
+  // Brand colours travel as --brand-* and globals.css picks the light or the dark variant. Button
+  // text follows the colour under it, and the dark variant is lightened until it reads (TD-050).
+  const brand = (name: string, hex: string | undefined, withForeground = false) => {
+    if (!hex) return {};
+    const dark = adaptForDarkTheme(hex);
+    return {
+      [`--brand-${name}`]: hex,
+      [`--brand-${name}-dark`]: dark,
+      ...(withForeground
+        ? {
+            [`--brand-${name}-fg`]: readableForeground(hex),
+            [`--brand-${name}-dark-fg`]: readableForeground(dark),
+          }
+        : {}),
+    };
+  };
   const colors = {
-    ...(branding.primaryColor
-      ? {
-          '--color-primary': branding.primaryColor,
-          '--color-primary-fg': readableForeground(branding.primaryColor),
-        }
-      : {}),
-    ...(branding.accentColor ? { '--color-accent': branding.accentColor } : {}),
+    ...brand('primary', branding.primaryColor, true),
+    ...brand('accent', branding.accentColor),
   } as CSSProperties;
 
   return (

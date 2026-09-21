@@ -20,6 +20,7 @@
     "postinstall": "prisma generate",
     "worker": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/worker.ts",
     "job:daily": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/run-daily.ts",
+    "screenshots": "tsx scripts/screenshots.ts",
     "job:demo-reset": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/run-demo-reset.ts"
   },
   "prisma": {

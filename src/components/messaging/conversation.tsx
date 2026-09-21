@@ -48,11 +48,12 @@ export function Conversation({ messages, viewerId }: { messages: Messages; viewe
                           rel="noreferrer"
                           className="underline"
                         >
-                          📎 {file.originalName}
+                          Adjunto: {file.originalName}
                         </a>
                       ) : (
                         <span className="text-fg-muted">
-                          📎 {file.originalName} · {fileStatusNote(file.status) ?? 'Subiendo…'}
+                          Adjunto: {file.originalName} ·{' '}
+                          {fileStatusNote(file.status) ?? 'Subiendo…'}
                         </span>
                       )}
                     </li>

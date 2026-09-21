@@ -23,7 +23,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-047 | — | **The proxy in front of the app must overwrite `X-Forwarded-Host`** (tenant resolution reads it first). Vercel does; document it for any other deployment. |
 | TD-048 | — | **i18n covers the shared header only.** `lib/i18n` and the five dictionaries exist; page copy is still inline Spanish and there is no locale switch (`User.locale` is stored but unused). |
 | TD-049 | — | **Vercel and Resend domain adapters are untested against live accounts** (same situation as TD-027). The flows are covered with injected providers and DNS resolvers. |
-| TD-050 | — | **Brand colours are validated against the light theme only**; in dark mode the tenant colours are used as they are. |
 | TD-051 | — | **Notification and message emails keep fixed wording** (only invitations, magic links and reminders are in the editable registry). |
 | TD-052 | — | **The real extractor is not exercised in CI** (needs a key and costs money): `RUN_AI_EXTRACTION_TEST=1 ANTHROPIC_API_KEY=… npx vitest run src/modules/documents/extraction`. Run it before each release and when changing the prompt or the model. |
 | TD-053 | — | **One VAT rate per document.** Invoices with several rates store totals and the main rate. |
@@ -88,3 +87,4 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-046 | post-launch | Staff can mute a thread (`ThreadRead.muted`): no more notifications for its new messages; mentions still arrive, and if everybody muted it the mute is ignored so a client is always heard. |
 | TD-016 | post-launch | Client import takes .xlsx as well as CSV, read by a small own reader (`lib/xlsx-read.ts`: zip central directory, shared and inline strings, zip-bomb ceiling), checked against a LibreOffice-written workbook; the template downloads in both formats. |
 | TD-075 | post-launch | Browser errors are reported too: `window` error and unhandled rejection listeners plus the error boundary post to `/api/errors` (rate limited, size limited, path without query string), which forwards to the same tracker. |
+| TD-050 | post-launch | Brand colours are adapted for the dark theme: lightened towards white until they reach 4.5:1 on the dark surface, with the button text recomputed; light and dark variants travel as `--brand-*` variables. |

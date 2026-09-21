@@ -16,6 +16,57 @@ rate limiting, CSP, revocable sessions, support mode), GDPR operations, help cen
 knowingly left for later is listed, item by item, in [`docs/tech-debt.md`](docs/tech-debt.md); the
 "definition of done" of the spec is checked at the [end of this file](#definition-of-done).
 
+## Screenshots
+
+All taken from the demo data (`npm run db:seed`, `DEMO_MODE=true`) with `npm run screenshots`; every name,
+tax id and document in them is synthetic.
+
+### The gestoría's panel
+
+| Inbox with keyboard shortcuts and preview                                         | Documentation traffic light                                                |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| ![Inbox: documents to process with the PDF preview](docs/screenshots/bandeja.png) | ![Traffic light of the quarter, per client](docs/screenshots/semaforo.png) |
+
+| Dashboard                                                                                                             | Client record                                                                               |
+| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| ![Dashboard: clients in red, documents to process, filings of the week, load per manager](docs/screenshots/panel.png) | ![Client record with checklist, obligations and access](docs/screenshots/cliente-ficha.png) |
+
+| Tax deadlines                                                                  | Conversation with a client                                                         |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| ![Upcoming tax deadlines of all clients](docs/screenshots/plazos-gestoria.png) | ![A thread between the gestoría and its client](docs/screenshots/conversacion.png) |
+
+| Billing                                                                                          | White label settings                                                                            |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| ![Invoices issued by the gestoría and the manual invoice form](docs/screenshots/facturacion.png) | ![Branding: logo, colours with contrast check, sender name](docs/screenshots/ajustes-marca.png) |
+
+<details>
+<summary>Data and privacy settings (GDPR operations)</summary>
+
+![Export, client erasure, retention and cancellation](docs/screenshots/ajustes-datos.png)
+
+</details>
+
+### The client's portal, on a phone
+
+<p>
+  <img src="docs/screenshots/movil-inicio.png" alt="Client home: what is missing and for when" width="230" />
+  <img src="docs/screenshots/movil-subir.png" alt="Upload: camera or files, resumable" width="230" />
+  <img src="docs/screenshots/movil-plazos.png" alt="The client's tax deadlines" width="230" />
+  <img src="docs/screenshots/movil-inicio-oscuro.png" alt="Dark theme: the brand colour is lightened until it reads" width="230" />
+</p>
+<p>
+  <img src="docs/screenshots/movil-entregas.png" alt="Deliveries from the gestoría, some to sign" width="230" />
+  <img src="docs/screenshots/movil-facturas.png" alt="Invoices of the gestoría, payable online" width="230" />
+  <img src="docs/screenshots/movil-ayuda.png" alt="Help centre" width="230" />
+  <img src="docs/screenshots/acceso.png" alt="Login page under the tenant's brand" width="230" />
+</p>
+
+### Generated documents
+
+| Invoice (own PDF writer, vector QR, tenant logo) | Signature certificate                                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| ![Invoice PDF](docs/screenshots/factura-pdf.png) | ![Certificate of a simple electronic signature](docs/screenshots/certificado-pdf.png) |
+
 ## Requirements
 
 - Node.js 22+, npm
@@ -66,6 +117,7 @@ ClamAV is heavy and not needed until phase 3: `docker compose --profile antiviru
 | `npm run worker`                    | BullMQ worker (`src/jobs/worker.ts`)                                                                                                                                                     |
 | `npm run job:daily -- [YYYY-MM-DD]` | Runs the morning job (reminders, notices, upkeep) for every tenant, now                                                                                                                  |
 | `npm run job:demo-reset`            | Deletes and re-seeds the demo tenants now (needs `DEMO_MODE=true`)                                                                                                                       |
+| `npm run screenshots`               | Retakes `docs/screenshots` from the running app (production build, demo data)                                                                                                            |
 | `npm run test:e2e`                  | Playwright: onboarding, upload → book/reject by keyboard, 10 photos over 3G. Starts the app and a worker itself; needs `docker compose up -d` and `npx playwright install chromium` once |
 | `npm run db:migrate`                | `prisma migrate dev`                                                                                                                                                                     |
 | `npm run db:seed`                   | Idempotent demo seed                                                                                                                                                                     |
