@@ -51,6 +51,10 @@ test('a client accepts the agreement, turns on 2FA and is challenged at the next
   await form.getByLabel('Contraseña').fill('demo1234');
   await form.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL(/acceso\/condiciones/);
+  // Until the agreement is accepted the API is closed too, not only the pages.
+  const early = await page.request.post('/api/uploads', { data: {} });
+  expect(early.status()).toBe(403);
+  expect((await early.json()).error).toContain('contrato de encargo');
   await page.getByRole('button', { name: 'He leído y acepto' }).click();
   await expect(page).toHaveURL(/inicio/);
 
@@ -86,4 +90,21 @@ test('a client accepts the agreement, turns on 2FA and is challenged at the next
   await expect(page).toHaveURL(/inicio/);
 
   await prisma.user.update({ where: { id: user.id }, data: { status: 'DISABLED' } });
+});
+
+test('a bot that fills the hidden sign-up field gets the usual answer and no tenant', async ({
+  page,
+}) => {
+  const slug = `bot${Date.now()}`;
+  await page.goto('http://localhost:3000/registro');
+  await page.getByLabel('Nombre de la gestoría').fill('Gestoría Robot');
+  await page.getByLabel('Dirección del portal').fill(slug);
+  await page.getByLabel('Nombre del administrador').fill('Robot');
+  await page.getByLabel('Correo del administrador').fill(`robot@${slug}.test`);
+  await page.locator('input[name="website"]').evaluate((input: HTMLInputElement) => {
+    input.value = 'https://spam.example';
+  });
+  await page.getByRole('button', { name: 'Crear mi portal' }).click();
+  await expect(page.getByText('Te hemos enviado un correo')).toBeVisible();
+  expect(await prisma.tenant.count({ where: { slug } })).toBe(0);
 });

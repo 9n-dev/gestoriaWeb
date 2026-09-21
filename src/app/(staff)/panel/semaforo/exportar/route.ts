@@ -1,12 +1,12 @@
 import { periodValue } from '@/lib/periods';
-import { getSessionUser } from '@/modules/auth/session';
+import { getSessionUser, mustAcceptAgreements } from '@/modules/auth/session';
 import { overviewCsv, tenantOverview } from '@/modules/checklists/service';
 import { AppError } from '@/lib/errors';
 import { overviewParams } from '../params';
 
 export async function GET(request: Request) {
   const user = await getSessionUser();
-  if (!user) return new Response(null, { status: 401 });
+  if (!user || (await mustAcceptAgreements(user))) return new Response(null, { status: 401 });
   const { period, filters } = overviewParams(Object.fromEntries(new URL(request.url).searchParams));
   try {
     const csv = overviewCsv(await tenantOverview(user, period, filters));

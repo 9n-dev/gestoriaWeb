@@ -27,7 +27,9 @@ export async function registerTenantAction(
 ): Promise<ActionState> {
   return runAction(async () => {
     await rateLimitByIp('signup');
-    await registerTenant(registration(formData));
+    // Honeypot: people never see this field, form-filling bots fill everything. They get the same
+    // answer as everybody else and nothing is created.
+    if (!formValues(formData).website) await registerTenant(registration(formData));
     return {
       success:
         'Te hemos enviado un correo para confirmar tu dirección. Ábrelo para activar el portal.',

@@ -1,11 +1,11 @@
 import { AppError } from '@/lib/errors';
 import { can } from '@/modules/auth/permissions';
-import { getSessionUser } from '@/modules/auth/session';
+import { getSessionUser, mustAcceptAgreements } from '@/modules/auth/session';
 import { clientImportTemplate } from '@/modules/clients/import';
 
 export async function GET() {
   const user = await getSessionUser();
-  if (!user || !can(user, 'client.import')) {
+  if (!user || (await mustAcceptAgreements(user)) || !can(user, 'client.import')) {
     return new Response(null, { status: new AppError('FORBIDDEN', '').status });
   }
   return new Response(clientImportTemplate(), {

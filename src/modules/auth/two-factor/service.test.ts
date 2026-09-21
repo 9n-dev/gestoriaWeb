@@ -82,11 +82,29 @@ describe('two-factor authentication', () => {
     expect((await startEnrolment(user)).secret).toBe(first.secret);
   });
 
-  it('passes the challenge with a TOTP code', async () => {
+  it('passes the challenge with a fresh TOTP code, and a code never works twice', async () => {
     const { account, tenant, user, secret } = await enrolled();
     const session = await openSession(account.id, tenant.id);
-    await verifyChallenge(user, session.id, totpAt(secret, Date.now()));
+
+    // The code that activated 2FA belongs to a step that is already spent.
+    await expect(
+      verifyChallenge(user, session.id, totpAt(secret, Date.now())),
+    ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+
+    // The next step (accepted as clock drift) is fresh...
+    const next = totpAt(secret, Date.now() + 30_000);
+    await verifyChallenge(user, session.id, next);
     expect((await loadSessionUser(session.id, tenant.id))?.twoFactor).toBe('ok');
+
+    // ...once. Whoever watched it being typed cannot open another session with it, nor with an older one.
+    const spy = await openSession(account.id, tenant.id);
+    await expect(verifyChallenge(user, spy.id, next)).rejects.toMatchObject({
+      code: 'UNAUTHENTICATED',
+    });
+    await expect(
+      verifyChallenge(user, spy.id, totpAt(secret, Date.now() - 30_000)),
+    ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+    expect((await loadSessionUser(spy.id, tenant.id))?.twoFactor).toBe('challenge');
   });
 
   it('accepts a recovery code exactly once', async () => {

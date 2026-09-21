@@ -264,7 +264,7 @@ separator. See ADR 0025–0026.
   nonce-based CSP, HSTS and friends; the bucket (`S3_ENDPOINT`) is the only foreign origin allowed. The
   reverse proxy must overwrite `X-Forwarded-For` and `X-Forwarded-Host`.
 - **Agreements**: the tenant admin (platform ↔ gestoría) and every client user (gestoría ↔ client) accept a
-  data processing agreement before entering; acceptances keep IP, user agent and the hash of the text.
+  data processing agreement before entering (pages, server actions and API routes alike); acceptances keep IP, user agent and the hash of the text.
   The wording in `src/modules/legal/dpa.ts` is a template: **have it reviewed by your lawyer** and bump
   `DPA_VERSION` when you change it (everybody is asked again).
 - **Ajustes → Datos y privacidad**: export everything (ZIP of CSVs + files, built by the worker, link by

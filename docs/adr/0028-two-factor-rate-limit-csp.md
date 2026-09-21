@@ -24,5 +24,5 @@ Date: 2026-09-19 · Status: accepted
 ## Consequences
 
 - Every page is dynamic (it already was: the tenant comes from the host).
-- A TOTP code can be replayed within its 30-second window (TD-061).
+- Later addition: a TOTP code works once. The accepted step is stored in `User.totpLastStep` and claimed with a conditional update, so a replayed or older code fails like a wrong one (closes TD-061).
 - `style-src` keeps `'unsafe-inline'` (TD-067).

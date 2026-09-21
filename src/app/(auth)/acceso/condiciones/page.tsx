@@ -8,13 +8,13 @@ export const metadata = { title: 'Contrato de encargo de tratamiento' };
 
 async function acceptAction() {
   'use server';
-  await acceptAgreements(await requireUser(), await requestMeta());
+  await acceptAgreements(await requireUser({ agreements: 'pending-allowed' }), await requestMeta());
   redirect('/');
 }
 
 /** Shown once per version of the agreement, before the first visit to the portal. */
 export default async function TermsPage() {
-  const user = await requireUser();
+  const user = await requireUser({ agreements: 'pending-allowed' });
   const agreements = await pendingAgreements(user);
   if (agreements.length === 0) redirect(homePathFor(user));
 

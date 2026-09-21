@@ -19,6 +19,13 @@ export function TenantRegistrationForm({
 }) {
   return (
     <ActionForm action={action}>
+      {/* Honeypot (see registerTenantAction): out of sight, out of the tab order, ignored by screen readers. */}
+      <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+        <label>
+          No rellenes este campo
+          <input type="text" name="website" tabIndex={-1} autoComplete="off" />
+        </label>
+      </div>
       <Field label="Nombre de la gestoría" name="name" required />
       <div className="flex flex-col gap-1.5">
         <label htmlFor="slug" className="text-sm font-medium">
