@@ -45,8 +45,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-065 | — | **Rate limiting is a fixed window keyed by `X-Forwarded-For`**: a 2x burst across the boundary is possible, and it trusts the proxy to overwrite that header (see TD-047). |
 | TD-066 | — | **Support mode is one read-only overview page** (figures and client list). Browsing the tenant's panel as superadmin would need a cross-host session; not built. |
 | TD-067 | — | **CSP keeps `style-src 'unsafe-inline'`**: tenant colours are CSS variables in a style attribute and Next inlines critical CSS. Scripts are nonce-only. |
-| TD-068 | — | **A cancelled tenant can only be reactivated by hand** (set `status='ACTIVE'`, clear `purgeAfter`): `setTenantStatus` handles ACTIVE/SUSPENDED only. |
-| TD-069 | — | **Retention deletes without warning**: no "these documents will be deleted next month" notice to the tenant admin. |
 | TD-070 | — | **Pages are never cached by the service worker** (personal data on possibly shared devices), so `/subir` cannot be opened from a cold start without network: the offline queue covers a connection lost while using it, or files left from a previous visit. |
 | TD-071 | — | **The offline queue covers the client uploader only** (not staff uploads: receipts, deliveries, permanent documents). Safari may evict IndexedDB of a site unused for 7 days unless the PWA is installed. |
 | TD-072 | — | **Help centre is fixed content**: ten Spanish articles for clients, no search, not editable per tenant, none for staff. |
@@ -87,3 +85,5 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-076 | post-launch | Tenant logo on the invoice PDF: own PNG decoder (all colour types, alpha as soft mask) and JPEG pass-through; only antivirus-clean files; never blocks issuing (ADR 0035). |
 | TD-077 | post-launch | Awkward logos (WebP, interlaced PNG, CMYK JPEG, over 4 MP) become a plain PNG in the browser before upload; the PNG decoder honours colour-key transparency; the signature certificate has a designed layout with logo and brand colour (leftover: TD-078). |
 | TD-078 | post-launch | Logos no longer need the browser to be PDF-ready: the server decodes interlaced (Adam7) PNGs, embeds CMYK JPEGs and shrinks big logos to print size. WebP is refused by the server (the worker's file pipeline never accepted it and was deleting such logos seconds after upload); the form converts it to PNG first. Also fixed: a logo-only branding update wiped the colours. |
+| TD-069 | post-launch | Monthly retention notice to the tenant admins (in-app, email, push) with the number of documents due in the next 45 days; retention deletes only what a notice at least 15 days old announced; shortening the period restarts the clock. |
+| TD-068 | post-launch | Platform support can undo a cancellation during its 30 days of grace from the tenants page ("Anular la baja"); the purge date is shown; audited on both sides. |

@@ -164,6 +164,7 @@ export async function listTenants(user: SessionUser) {
       status: true,
       plan: true,
       createdAt: true,
+      purgeAfter: true,
       _count: { select: { clients: true, users: true } },
     },
     orderBy: { createdAt: 'desc' },

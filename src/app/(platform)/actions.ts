@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { rateLimitByIp } from '@/lib/rate-limit';
 import { formValues, runAction, type ActionState } from '@/lib/action';
 import { requireUser } from '@/modules/auth/session';
+import { reactivateTenant } from '@/modules/gdpr/erasure';
 import {
   createTenantAsSuperadmin,
   registerTenant,
@@ -50,6 +51,17 @@ export async function createTenantAction(_: ActionState, formData: FormData): Pr
     const tenant = await createTenantAsSuperadmin(await requireUser(), registration(formData));
     revalidatePath('/plataforma');
     return { success: `Gestoría «${tenant.name}» creada. Hemos invitado a su administrador.` };
+  });
+}
+
+export async function reactivateTenantAction(
+  tenantId: string,
+  _: ActionState,
+): Promise<ActionState> {
+  return runAction(async () => {
+    await reactivateTenant(await requireUser(), tenantId);
+    revalidatePath('/plataforma');
+    return {};
   });
 }
 

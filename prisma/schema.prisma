@@ -232,6 +232,7 @@ enum ReminderKind {
   PERMANENT_DOC_EXPIRY
   INVOICE_OVERDUE
   CLIENT_INACTIVITY
+  RETENTION_NOTICE // monthly heads-up to the admins before the retention policy deletes documents
 }
 
 enum DataExportStatus {

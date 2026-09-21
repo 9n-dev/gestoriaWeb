@@ -4,6 +4,7 @@ import { AppError } from '@/lib/errors';
 import { enqueue, QUEUES } from '@/lib/queue';
 import { deleteObject, deletePrefix } from '@/lib/storage/multipart';
 import { recordAudit } from '@/modules/audit/service';
+import { notifyUsers } from '@/modules/messaging/notifications';
 import { assertCan, requireTenantId, type SessionUser } from '@/modules/auth/permissions';
 
 const DAY_MS = 86_400_000;
@@ -146,23 +147,105 @@ export async function purgeClient(tenantId: string, clientId: string): Promise<v
 
 // ─────────────────────────── Documents: retention and soft deletes ───────────────────────────
 
-/**
- * Physically deletes documents past the tenant's retention period (default 6 years) and the ones
- * somebody deleted more than 30 days ago (their objects used to stay in the bucket, TD-039).
- */
-export async function purgeOldDocuments(tenantId: string, now: Date = new Date()): Promise<number> {
+/** Days between a retention notice and the first deletion it announces, and how far ahead it looks. */
+const NOTICE_LEAD_DAYS = 15;
+const NOTICE_WINDOW_DAYS = 45;
+
+async function retentionLimitOf(
+  tenantId: string,
+  now: Date,
+): Promise<{ years: number; limit: Date }> {
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
   const years =
     (tenant.settings as { retentionYears?: number } | null)?.retentionYears ??
     DEFAULT_RETENTION_YEARS;
-  const retentionLimit = new Date(now);
-  retentionLimit.setFullYear(retentionLimit.getFullYear() - years);
+  const limit = new Date(now);
+  limit.setFullYear(limit.getFullYear() - years);
+  return { years, limit };
+}
 
+/**
+ * Once a month, tells the tenant admins how many documents the retention policy will delete in the
+ * next 45 days. Nothing is ever deleted by retention that a notice at least 15 days old did not
+ * announce (see `purgeOldDocuments`), so the admins always have time to export or to change the policy.
+ */
+export async function sendRetentionNotice(
+  tenantId: string,
+  now: Date = new Date(),
+): Promise<number> {
+  const { years, limit } = await retentionLimitOf(tenantId, now);
   const db = tenantDb(tenantId);
+  const horizon = new Date(limit.getTime() + NOTICE_WINDOW_DAYS * DAY_MS);
+  const upcoming = await db.document.count({
+    where: { createdAt: { lt: horizon }, deletedAt: null },
+  });
+  if (upcoming === 0) return 0;
+
+  // One per tenant and month; the unique key makes a double run harmless.
+  const step = now.toISOString().slice(0, 7);
+  const { count } = await db.reminderLog.createMany({
+    data: [{ tenantId, kind: 'RETENTION_NOTICE', entityId: tenantId, step, sentAt: now }],
+    skipDuplicates: true,
+  });
+  if (count === 0) return 0;
+
+  const admins = await db.user.findMany({
+    where: { role: 'TENANT_ADMIN', status: 'ACTIVE' },
+    select: { id: true },
+  });
+  try {
+    await notifyUsers(
+      tenantId,
+      admins.map((admin) => admin.id),
+      {
+        type: 'SYSTEM',
+        title: `${upcoming} ${upcoming === 1 ? 'documento se borrará' : 'documentos se borrarán'} por la política de retención`,
+        body: `Conservas los documentos ${years} años. Los que superen ese plazo en los próximos ${NOTICE_WINDOW_DAYS} días se borrarán definitivamente, no antes de ${NOTICE_LEAD_DAYS} días desde hoy. Si los necesitas, expórtalos o amplía el plazo en Ajustes → Datos y privacidad.`,
+        link: '/panel/ajustes/datos',
+      },
+    );
+  } catch (error) {
+    // Release the claim so tomorrow's run tries again.
+    await db.reminderLog.deleteMany({
+      where: { kind: 'RETENTION_NOTICE', entityId: tenantId, step },
+    });
+    throw error;
+  }
+  return upcoming;
+}
+
+/**
+ * Physically deletes documents past the tenant's retention period (default 6 years) — only those
+ * a notice at least 15 days old announced — and the ones somebody deleted more than 30 days ago
+ * (their objects used to stay in the bucket, TD-039).
+ */
+export async function purgeOldDocuments(tenantId: string, now: Date = new Date()): Promise<number> {
+  const { years, limit: retentionLimit } = await retentionLimitOf(tenantId, now);
+  const db = tenantDb(tenantId);
+  const notice = await db.reminderLog.findFirst({
+    where: {
+      kind: 'RETENTION_NOTICE',
+      entityId: tenantId,
+      sentAt: { lte: new Date(now.getTime() - NOTICE_LEAD_DAYS * DAY_MS) },
+    },
+    orderBy: { sentAt: 'desc' },
+  });
+  // What the notice covered: documents reaching the limit up to 45 days after it was sent.
+  const announced = notice
+    ? new Date(
+        Math.min(
+          retentionLimit.getTime(),
+          notice.sentAt.getTime() -
+            (now.getTime() - retentionLimit.getTime()) +
+            NOTICE_WINDOW_DAYS * DAY_MS,
+        ),
+      )
+    : null;
+
   const doomed = await db.document.findMany({
     where: {
       OR: [
-        { createdAt: { lt: retentionLimit } },
+        ...(announced ? [{ createdAt: { lt: announced } }] : []),
         { deletedAt: { lt: new Date(now.getTime() - GRACE_DAYS * DAY_MS) } },
       ],
     },
@@ -222,6 +305,15 @@ export async function setRetentionYears(user: SessionUser, years: number): Promi
     where: { id: tenantId },
     data: { settings: { ...(tenant.settings as object), retentionYears: years } },
   });
+  const before =
+    (tenant.settings as { retentionYears?: number } | null)?.retentionYears ??
+    DEFAULT_RETENTION_YEARS;
+  if (years < before) {
+    // A shorter period dooms documents no notice has announced: the clock starts again.
+    await tenantDb(tenantId).reminderLog.deleteMany({
+      where: { kind: 'RETENTION_NOTICE', entityId: tenantId },
+    });
+  }
   await recordAudit({
     tenantId,
     actor: user,
@@ -269,6 +361,36 @@ export async function cancelTenant(user: SessionUser, confirmation: string): Pro
     diff: { purgeAfter: purgeAfter.toISOString() },
   });
   return purgeAfter;
+}
+
+/**
+ * Undoes a cancellation during its 30 days of grace (a gestoría that changed its mind, or a
+ * cancellation by mistake). Platform support does it: nobody of the tenant can log in any more.
+ * Sessions stay revoked and the export already emailed stays valid until it expires.
+ */
+export async function reactivateTenant(user: SessionUser, tenantId: string): Promise<void> {
+  assertCan(user, 'platform.tenant.suspend');
+  const { count } = await prisma.tenant.updateMany({
+    where: { id: tenantId, status: 'CANCELLED', purgeAfter: { gt: new Date() } },
+    data: { status: 'ACTIVE', cancelledAt: null, purgeAfter: null },
+  });
+  if (count === 0) {
+    throw new AppError('CONFLICT', 'Esa gestoría no está de baja o ya se ha borrado.');
+  }
+  await recordAudit({
+    tenantId: null,
+    actor: user,
+    action: 'platform.tenant.reactivate',
+    entity: 'Tenant',
+    entityId: tenantId,
+  });
+  await recordAudit({
+    tenantId,
+    actor: user,
+    action: 'tenant.reactivated',
+    entity: 'Tenant',
+    entityId: tenantId,
+  });
 }
 
 /** Tenant-owned tables, children before parents, straight from the Prisma model graph. */
@@ -366,7 +488,10 @@ export async function runGdprSweep(now: Date = new Date()): Promise<GdprSweepSum
     where: { status: 'ACTIVE' },
     select: { id: true },
   });
-  for (const tenant of active) documents += await purgeOldDocuments(tenant.id, now);
+  for (const tenant of active) {
+    await sendRetentionNotice(tenant.id, now);
+    documents += await purgeOldDocuments(tenant.id, now);
+  }
 
   const expired = await prisma.dataExport.findMany({
     where: { status: 'READY', expiresAt: { lte: now } },
