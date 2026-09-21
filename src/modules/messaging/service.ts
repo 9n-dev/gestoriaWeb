@@ -141,7 +141,25 @@ export async function getThread(user: SessionUser, id: string) {
     create: { tenantId: thread.tenantId, threadId: id, userId: user.id },
     update: { lastReadAt: new Date() },
   });
-  return { thread, messages };
+  const mine = await db.threadRead.findUnique({
+    where: { threadId_userId: { threadId: id, userId: user.id } },
+    select: { muted: true },
+  });
+  return { thread, messages, muted: mine?.muted ?? false };
+}
+
+/**
+ * "Silenciar": a member of staff stops getting notifications for the new messages of one thread.
+ * Mentions still arrive, and a thread is never silent for everybody (see `audience`).
+ */
+export async function setThreadMuted(user: SessionUser, id: string, muted: boolean): Promise<void> {
+  const thread = await loadThread(user, id);
+  assertCan(user, 'area.staff');
+  await tenantDb(thread.tenantId).threadRead.upsert({
+    where: { threadId_userId: { threadId: id, userId: user.id } },
+    create: { tenantId: thread.tenantId, threadId: id, userId: user.id, muted },
+    update: { muted },
+  });
 }
 
 export async function unreadThreadCount(user: SessionUser): Promise<number> {
@@ -254,7 +272,14 @@ async function audience(
     });
     leads.forEach((lead) => staff.add(lead.id));
   }
-  return [...staff].filter((id) => id !== authorId && !mentioned.includes(id));
+  const recipients = [...staff].filter((id) => id !== authorId && !mentioned.includes(id));
+  const muted = await db.threadRead.findMany({
+    where: { threadId: thread.id, muted: true, userId: { in: recipients } },
+    select: { userId: true },
+  });
+  const listening = recipients.filter((id) => !muted.some((row) => row.userId === id));
+  // If everybody muted it, the mute loses: a client must never write into the void.
+  return listening.length > 0 ? listening : recipients;
 }
 
 export async function sendMessage(

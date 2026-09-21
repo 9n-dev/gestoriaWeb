@@ -6,7 +6,12 @@ import { formValues, runAction, type ActionState } from '@/lib/action';
 import { parsePeriodValue } from '@/lib/periods';
 import { can } from '@/modules/auth/permissions';
 import { requireUser } from '@/modules/auth/session';
-import { createThread, sendMessage, setThreadStatus } from '@/modules/messaging/service';
+import {
+  createThread,
+  sendMessage,
+  setThreadMuted,
+  setThreadStatus,
+} from '@/modules/messaging/service';
 import {
   deleteMessageTemplate,
   renderMessageTemplate,
@@ -55,6 +60,15 @@ export const setThreadStatusAction = async (
     await setThreadStatus(await requireUser(), threadId, status);
     revalidatePath(`/panel/mensajes/${threadId}`);
     return { success: status === 'CLOSED' ? 'Conversación cerrada.' : 'Conversación reabierta.' };
+  });
+
+export const setThreadMutedAction = async (
+  threadId: string,
+  muted: boolean,
+): Promise<ActionState> =>
+  runAction(async () => {
+    await setThreadMuted(await requireUser(), threadId, muted);
+    return {};
   });
 
 export const renderTemplateAction = async (

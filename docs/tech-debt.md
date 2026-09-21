@@ -20,9 +20,7 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-038 | — | **Dashboard numbers are computed on every visit** (overview of all clients in memory; average over the last 2 000 processed documents). Cache or pre-aggregate if a tenant grows large. |
 | TD-041 | — | **Failed-jobs panel has no pagination or bulk retry**: first 100 per queue. |
 | TD-042 | — | **Reply-by-email trusts the From address plus the thread token** (ADR 0022). Enforce DMARC on the inbound domain when it is connected. |
-| TD-043 | — | **Counters refresh on navigation only**: the bell and unread threads are server-rendered, there is no polling or live update. |
 | TD-044 | — | **Attachments are added after the message is sent** (15-minute window, author only). An attachment that fails leaves a message without it and a warning to the author. |
-| TD-046 | — | **Every staff participant of a thread is notified of each new message**; there is no per-thread mute. |
 | TD-047 | — | **The proxy in front of the app must overwrite `X-Forwarded-Host`** (tenant resolution reads it first). Vercel does; document it for any other deployment. |
 | TD-048 | — | **i18n covers the shared header only.** `lib/i18n` and the five dictionaries exist; page copy is still inline Spanish and there is no locale switch (`User.locale` is stored but unused). |
 | TD-049 | — | **Vercel and Resend domain adapters are untested against live accounts** (same situation as TD-027). The flows are covered with injected providers and DNS resolvers. |
@@ -88,3 +86,5 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-060 | post-launch | Manual invoice form with up to 50 lines, quantity, VAT and IRPF per line and a live total computed with the same `computeTotals` the server uses. |
 | TD-026 | post-launch | Client list searched (name or tax id, LIKE wildcards escaped) and paginated in SQL, 50 per page, inside the user's scope. |
 | TD-033 | post-launch | The inbox is a work queue, not an archive: it still shows the first 300 of the filter, and now says how many match in total and that the next ones come in as these are processed. |
+| TD-043 | post-launch | Counters refresh by themselves: the header asks the server again every 60 seconds and when the tab returns to the front, never while somebody types or a dialog is open. |
+| TD-046 | post-launch | Staff can mute a thread (`ThreadRead.muted`): no more notifications for its new messages; mentions still arrive, and if everybody muted it the mute is ignored so a client is always heard. |

@@ -839,6 +839,8 @@ model ThreadRead {
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastReadAt DateTime @default(now())
+  // Staff only: no notifications for new messages of this thread (mentions still arrive).
+  muted      Boolean  @default(false)
 
   @@id([threadId, userId])
   @@index([userId])
