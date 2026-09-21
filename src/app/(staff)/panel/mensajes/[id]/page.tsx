@@ -8,11 +8,13 @@ import { can } from '@/modules/auth/permissions';
 import { listAssignableManagers } from '@/modules/clients/service';
 import { getThread, threadResource } from '@/modules/messaging/service';
 import { listMessageTemplates } from '@/modules/messaging/templates';
-import { ThreadStatusButton } from './thread-status';
+import { ThreadMuteButton, ThreadStatusButton } from './thread-status';
 
 export default async function StaffThreadPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireArea('area.staff');
-  const { thread, messages } = await getThread(user, (await params).id).catch(() => notFound());
+  const { thread, messages, muted } = await getThread(user, (await params).id).catch(() =>
+    notFound(),
+  );
   const internal = thread.type === 'INTERNAL';
   const [templates, colleagues] = await Promise.all([
     internal ? [] : listMessageTemplates(user),
@@ -39,9 +41,12 @@ export default async function StaffThreadPage({ params }: { params: Promise<{ id
             {thread.status === 'CLOSED' && ' · cerrada'}
           </p>
         </div>
-        {can(user, 'thread.close', threadResource(thread)) && (
-          <ThreadStatusButton threadId={thread.id} closed={thread.status === 'CLOSED'} />
-        )}
+        <div className="flex flex-wrap gap-2">
+          <ThreadMuteButton threadId={thread.id} muted={muted} />
+          {can(user, 'thread.close', threadResource(thread)) && (
+            <ThreadStatusButton threadId={thread.id} closed={thread.status === 'CLOSED'} />
+          )}
+        </div>
       </div>
       <Conversation messages={messages} viewerId={user.id} />
       <Composer

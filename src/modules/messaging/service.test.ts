@@ -11,6 +11,7 @@ import {
   getThread,
   listThreads,
   sendMessage,
+  setThreadMuted,
   setThreadStatus,
   unreadThreadCount,
 } from './service';
@@ -166,6 +167,35 @@ describe('messaging', () => {
     await prisma.client.update({ where: { id: clientId }, data: { assignedManagerId: null } });
     await createThread(clientUser, { clientId, subject: 'Hola', body: '¿Hay alguien?' });
     expect(await notificationsOf(supervisor.id)).toHaveLength(1);
+  });
+
+  it('a muted thread stops notifying that person, but never goes silent for everybody; clients cannot mute', async () => {
+    const { threadId } = await createThread(clientUser, {
+      clientId,
+      subject: 'Dudas',
+      body: 'Hola',
+    });
+    await sendMessage(supervisor, threadId, 'Yo también lo miro'); // the supervisor takes part
+    const count = async (id: string) => (await notificationsOf(id)).length;
+    const [managerBefore, supervisorBefore] = [await count(manager.id), await count(supervisor.id)];
+
+    await setThreadMuted(supervisor, threadId, true);
+    expect((await getThread(supervisor, threadId)).muted).toBe(true);
+    await sendMessage(clientUser, threadId, 'Otra pregunta');
+    expect(await count(manager.id)).toBe(managerBefore + 1);
+    expect(await count(supervisor.id)).toBe(supervisorBefore);
+
+    // Everybody muted: the mute loses, the client is still heard.
+    await setThreadMuted(manager, threadId, true);
+    await sendMessage(clientUser, threadId, '¿Hay alguien?');
+    expect(await count(manager.id)).toBe(managerBefore + 2);
+    expect(await count(supervisor.id)).toBe(supervisorBefore + 1);
+
+    await setThreadMuted(supervisor, threadId, false);
+    expect((await getThread(supervisor, threadId)).muted).toBe(false);
+    await expect(setThreadMuted(clientUser, threadId, true)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
   });
 
   it('managers only reach threads of their clients; closing is for staff and a new message reopens', async () => {
