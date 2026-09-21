@@ -54,6 +54,33 @@ export const clientsRepository = (tenantId: string) => {
         select: clientFacingSelect,
         orderBy: { legalName: 'asc' },
       }),
+    /** One page of the staff list, searched in SQL by name or tax id. */
+    searchForStaff: async (filter: ClientFilter, query: string, skip: number, take: number) => {
+      // Prisma passes LIKE wildcards through: what the user typed is text, not a pattern.
+      const text = query.replace(/[\\%_]/g, '\\$&');
+      const condition: Prisma.ClientWhereInput = {
+        ...where(filter),
+        ...(query
+          ? {
+              OR: [
+                { legalName: { contains: text, mode: 'insensitive' } },
+                { taxId: { contains: text.toUpperCase() } },
+              ],
+            }
+          : {}),
+      };
+      const [clients, total] = await Promise.all([
+        db.client.findMany({
+          where: condition,
+          select: staffSelect,
+          orderBy: { legalName: 'asc' },
+          skip,
+          take,
+        }),
+        db.client.count({ where: condition }),
+      ]);
+      return { clients, total };
+    },
     findForStaff: (id: string): Promise<StaffClient | null> =>
       db.client.findFirst({ where: { id, deletedAt: null }, select: staffSelect }),
   };

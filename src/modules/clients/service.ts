@@ -56,6 +56,25 @@ export async function listClientsFor(
     : repository.listForClientUser(filterFor(user));
 }
 
+export const CLIENTS_PAGE_SIZE = 50;
+
+/** The staff's client list: searched and paginated in the database, inside the user's scope. */
+export async function searchClients(
+  user: SessionUser,
+  input: { query?: string; page?: number } = {},
+): Promise<{ clients: StaffClient[]; total: number; page: number; pages: number }> {
+  assertCan(user, 'client.readInternalNotes');
+  const query = (input.query ?? '').trim().slice(0, 100);
+  const page = Math.max(1, Math.floor(input.page ?? 1) || 1);
+  const { clients, total } = await clientsRepository(requireTenantId(user)).searchForStaff(
+    filterFor(user),
+    query,
+    (page - 1) * CLIENTS_PAGE_SIZE,
+    CLIENTS_PAGE_SIZE,
+  );
+  return { clients, total, page, pages: Math.max(1, Math.ceil(total / CLIENTS_PAGE_SIZE)) };
+}
+
 /** Staff view of a client the user can read. Not found and not allowed are indistinguishable. */
 export async function loadForStaff(user: SessionUser, id: string): Promise<StaffClient> {
   const client = await clientsRepository(requireTenantId(user)).findForStaff(id);

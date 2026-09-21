@@ -98,26 +98,42 @@ export const inboxFiltersSchema = z.object({
 export type InboxFilters = z.input<typeof inboxFiltersSchema>;
 
 /** Unified inbox (§6.10): documents of assigned clients for managers, of everybody for leads. */
+export const INBOX_PAGE_SIZE = 300;
+
+function inboxWhere(user: SessionUser, filters: InboxFilters): Prisma.DocumentWhereInput {
+  const { statuses, clientId, managerId, type } = inboxFiltersSchema.parse(filters);
+  const ownOnly = scopeFor(user, 'document.process') === 'assigned';
+  return {
+    ...VISIBLE,
+    status: { in: statuses },
+    type,
+    clientId,
+    client: { deletedAt: null, assignedManagerId: ownOnly ? user.id : managerId },
+  };
+}
+
+/**
+ * The work queue: the first 300 documents of the filter, in its order. It is a queue, not an
+ * archive: processed documents leave it and the next ones come in, so there are no pages.
+ */
 export async function listInbox(
   user: SessionUser,
   filters: InboxFilters = {},
 ): Promise<DocumentRow[]> {
   assertCan(user, 'document.process');
-  const { statuses, clientId, managerId, type, order } = inboxFiltersSchema.parse(filters);
-  const ownOnly = scopeFor(user, 'document.process') === 'assigned';
-
+  const { order } = inboxFiltersSchema.parse(filters);
   return tenantDb(requireTenantId(user)).document.findMany({
-    where: {
-      ...VISIBLE,
-      status: { in: statuses },
-      type,
-      clientId,
-      client: { deletedAt: null, assignedManagerId: ownOnly ? user.id : managerId },
-    },
+    where: inboxWhere(user, filters),
     select: documentSelect,
     orderBy: { createdAt: order === 'oldest' ? 'asc' : 'desc' },
-    take: 300,
+    take: INBOX_PAGE_SIZE,
   });
+}
+
+/** How many documents match in total, to tell the manager when the queue is longer than the view. */
+export async function countInbox(user: SessionUser, filters: InboxFilters = {}): Promise<number> {
+  assertCan(user, 'document.process');
+  return tenantDb(requireTenantId(user)).document.count({ where: inboxWhere(user, filters) });
 }
 
 export async function listClientDocuments(
