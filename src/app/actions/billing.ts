@@ -25,15 +25,22 @@ export async function createInvoiceAction(
 ): Promise<ActionState> {
   return runAction(async () => {
     const values = formValues(formData);
-    const lines = [0, 1, 2]
-      .map((i) => ({
-        description: values[`description${i}`] ?? '',
-        unitPrice: values[`unitPrice${i}`] ?? '',
-        quantity: 1,
-        vatRate: values.vatRate ?? '21',
-        irpfRate: values.irpfRate ?? '0',
-      }))
-      .filter((line) => line.description || line.unitPrice);
+    // One value per line and field, in document order (the form repeats the same field names).
+    const column = (name: string) => formData.getAll(name).map((value) => String(value).trim());
+    const [descriptions, quantities, prices, vatRates, irpfRates] = [
+      'description',
+      'quantity',
+      'unitPrice',
+      'vatRate',
+      'irpfRate',
+    ].map(column);
+    const lines = descriptions!.map((description, i) => ({
+      description,
+      quantity: quantities![i] || '1',
+      unitPrice: prices![i] ?? '',
+      vatRate: vatRates![i] || '21',
+      irpfRate: irpfRates![i] || '0',
+    }));
     const id = await createInvoice(await requireUser(), {
       clientId: values.clientId ?? '',
       lines,

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { formValues, runAction, type ActionState } from '@/lib/action';
 import { parsePeriodValue } from '@/lib/periods';
 import { requireUser } from '@/modules/auth/session';
+import { requestReextraction } from '@/modules/documents/extraction/reextract';
 import { deleteSavedView, saveView } from '@/modules/documents/saved-views';
 import {
   bookDocument,
@@ -24,6 +25,12 @@ export const bookAction = async (id: string): Promise<ActionState> =>
   runAction(async () => {
     await bookDocument(await requireUser(), id);
     return done('Contabilizado.');
+  });
+
+export const reextractAction = async (id: string): Promise<ActionState> =>
+  runAction(async () => {
+    await requestReextraction(await requireUser(), id);
+    return done('Leyendo de nuevo. Los datos aparecerán en unos segundos.');
   });
 
 export const duplicateAction = async (id: string): Promise<ActionState> =>

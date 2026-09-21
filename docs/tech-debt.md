@@ -32,11 +32,9 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-051 | — | **Notification and message emails keep fixed wording** (only invitations, magic links and reminders are in the editable registry). |
 | TD-052 | — | **The real extractor is not exercised in CI** (needs a key and costs money): `RUN_AI_EXTRACTION_TEST=1 ANTHROPIC_API_KEY=… npx vitest run src/modules/documents/extraction`. Run it before each release and when changing the prompt or the model. |
 | TD-053 | — | **One VAT rate per document.** Invoices with several rates store totals and the main rate. |
-| TD-054 | — | **No "extract again" button** for a document that failed or was read badly; the manager edits the fields. |
 | TD-055 | — | **Export has no vendor presets** (A3, Sage, Contasol…): columns and separator only. |
 | TD-057 | — | **Stripe and GoCardless adapters are untested against live accounts**; signatures and idempotency are covered with the documented schemes. There is no SEPA mandate set-up flow: `Client.gocardlessMandateId` must be filled by hand. |
 | TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
-| TD-060 | — | **The new-invoice form takes three lines and one VAT rate**; the service accepts up to 50 lines with their own rates. |
 | TD-062 | — | **2FA enforcement is off when `DEMO_MODE=true`** so the published demo users work. The feature itself stays on. Never run a real tenant with demo mode. |
 | TD-063 | — | **Data exports are built in memory** (`buildExport`). Fine for a small gestoría; a tenant with many GB needs a streamed ZIP into a multipart upload. |
 | TD-065 | — | **Rate limiting is a fixed window keyed by `X-Forwarded-For`**: a 2x burst across the boundary is possible, and it trusts the proxy to overwrite that header (see TD-047). |
@@ -87,3 +85,5 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-061 | post-launch | A TOTP code works once: the accepted 30-second step is stored (`User.totpLastStep`) and claimed atomically; the same or an older code is refused like a wrong one. |
 | TD-064 | post-launch | The agreement gate moved into `requireUser` and `apiRoute`: pages, server actions and API routes are all closed until the DPA in force is accepted (the legal review of the template text remains the owner's job, see README). |
 | TD-018 | post-launch | Sign-up has a honeypot field on top of the per-IP rate limit and the 7-day sweep of unverified tenants. A real captcha would need an external service; add one if abuse shows up. |
+| TD-054 | post-launch | "Leer de nuevo" in the inbox (button and shortcut L): discards the current reading and queues a new extraction; at most 3 reads per document, never on booked documents; audited. |
+| TD-060 | post-launch | Manual invoice form with up to 50 lines, quantity, VAT and IRPF per line and a live total computed with the same `computeTotals` the server uses. |
