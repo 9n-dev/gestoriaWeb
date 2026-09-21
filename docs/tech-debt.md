@@ -44,6 +44,7 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-073 | — | **Lighthouse is run by hand** against the local production build (scores in the README), not in CI, and not on a throttled real device. |
 | TD-074 | — | **The demo reset only recreates `perez` and `otra`**: gestorías that visitors register in a demo environment stay (unverified ones are swept after 7 days). |
 | TD-075 | — | **Only server-side errors are reported** (`onRequestError`, actions, API routes, webhooks, final job failures). Browser errors are not. |
+| TD-079 | — | **One flaky test seen once**: `reminders/service.test.ts` "reminds at 15, 7, 2 and 0 days" failed in one full-suite run on 2026-09-21 and passed in isolation (6 times) and in the next two full runs; the assertion message was not captured. Suspect: ordering of `EmailLog` rows by a millisecond `createdAt`. If it shows up again, capture the message before anything else. |
 
 ## Closed
 
