@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import type { SessionUser } from '@/modules/auth/permissions';
 import { resetDb } from '@tests/setup/db';
 import { createClient, createTenant } from '@tests/setup/factories';
+import { sessionUserFor } from '@tests/setup/session';
 import { unzipForTests } from '@tests/setup/unzip';
 import { seedTenantWorld } from '@tests/setup/world';
 import {
@@ -12,8 +13,10 @@ import {
   purgeClient,
   purgeOldDocuments,
   purgeTenant,
+  reactivateTenant,
   requestClientErasure,
   runGdprSweep,
+  sendRetentionNotice,
   setRetentionYears,
 } from './erasure';
 import { exportUrlForToken, exportUrlForUser, requestExport, runExport } from './export';
@@ -192,26 +195,73 @@ describe('GDPR operations', () => {
   });
 
   describe('document retention', () => {
-    it('deletes documents older than the retention period and old soft deletes, nothing else', async () => {
+    it('warns the admins first and only deletes what a notice at least 15 days old announced', async () => {
       const file = await prisma.storedFile.findFirstOrThrow({
         where: { id: world.document.fileId },
       });
       bucket.set(file.storageKey, new Uint8Array([1]));
-      expect(await purgeOldDocuments(tenantId)).toBe(0);
+      const now = new Date('2026-09-21T08:00:00Z');
+      const at = (days: number) => new Date(now.getTime() + days * DAY);
+      const notices = () =>
+        prisma.notification.count({
+          where: { userId: world.admin.id, title: { contains: 'política de retención' } },
+        });
 
-      const sevenYearsAgo = new Date();
-      sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
+      // Nothing old: no notice, nothing deleted.
+      expect(await sendRetentionNotice(tenantId, now)).toBe(0);
+      expect(await purgeOldDocuments(tenantId, now)).toBe(0);
+
+      // Seven years old with a six-year policy: overdue, but nobody has been told yet.
       await prisma.document.update({
         where: { id: world.document.id },
-        data: { createdAt: sevenYearsAgo },
+        data: { createdAt: new Date('2019-09-01T00:00:00Z') },
       });
+      expect(await purgeOldDocuments(tenantId, now)).toBe(0);
+      expect(await sendRetentionNotice(tenantId, now)).toBe(1);
+      expect(await sendRetentionNotice(tenantId, at(1))).toBe(0); // once a month
+      expect(await notices()).toBe(1);
+      expect(
+        await prisma.notification.count({
+          where: { userId: world.manager.id, title: { contains: 'retención' } },
+        }),
+      ).toBe(0);
+
+      expect(await purgeOldDocuments(tenantId, at(14))).toBe(0); // too soon
+      // A longer policy in the meantime saves the document.
       await setRetentionYears(admin, 10);
-      expect(await purgeOldDocuments(tenantId)).toBe(0);
+      expect(await purgeOldDocuments(tenantId, at(16))).toBe(0);
+      // Back to six: shortening the period restarts the clock, so there is a new notice and a new wait.
       await setRetentionYears(admin, 6);
-      expect(await purgeOldDocuments(tenantId)).toBe(1);
+      expect(await purgeOldDocuments(tenantId, at(16))).toBe(0);
+      expect(await sendRetentionNotice(tenantId, at(16))).toBe(1);
+      expect(await purgeOldDocuments(tenantId, at(30))).toBe(0);
+
+      expect(await purgeOldDocuments(tenantId, at(32))).toBe(1);
       expect(bucket.has(file.storageKey)).toBe(false);
       expect(await prisma.storedFile.count({ where: { id: file.id } })).toBe(0);
       await expect(setRetentionYears(admin, 2)).rejects.toMatchObject({ code: 'VALIDATION' });
+    });
+
+    it('never deletes a document the notice did not reach, even if it expires later', async () => {
+      const now = new Date('2026-09-21T08:00:00Z');
+      // Expires 60 days from now: outside the 45-day window of today's notice.
+      const created = new Date(now);
+      created.setFullYear(created.getFullYear() - 6);
+      await prisma.document.update({
+        where: { id: world.document.id },
+        data: { createdAt: new Date(created.getTime() + 60 * DAY) },
+      });
+      expect(await sendRetentionNotice(tenantId, now)).toBe(0);
+      await prisma.reminderLog.create({
+        data: {
+          tenantId,
+          kind: 'RETENTION_NOTICE',
+          entityId: tenantId,
+          step: '2026-09',
+          sentAt: now,
+        },
+      });
+      expect(await purgeOldDocuments(tenantId, new Date(now.getTime() + 70 * DAY))).toBe(0);
     });
 
     it('sweeps files nothing points at any more, once they are a month old', async () => {
@@ -256,6 +306,29 @@ describe('GDPR operations', () => {
         await prisma.dataExport.count({ where: { tenantId, clientId: null, status: 'PENDING' } }),
       ).toBe(1);
       await expect(purgeTenant(tenantId)).rejects.toMatchObject({ code: 'CONFLICT' });
+    });
+
+    it('platform support can undo the cancellation during the grace period, and only then', async () => {
+      const root = await sessionUserFor(null, 'SUPERADMIN');
+      await expect(reactivateTenant(root, tenantId)).rejects.toMatchObject({ code: 'CONFLICT' });
+      await cancelTenant(admin, 'perez');
+      await expect(reactivateTenant(admin, tenantId)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+      await reactivateTenant(root, tenantId);
+      const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+      expect(tenant).toMatchObject({ status: 'ACTIVE', cancelledAt: null, purgeAfter: null });
+      expect((await runGdprSweep(new Date(Date.now() + 40 * DAY))).tenants).toBe(0);
+      expect(
+        await prisma.auditLog.count({ where: { tenantId, action: 'tenant.reactivated' } }),
+      ).toBe(1);
+
+      // Too late once the grace period is over.
+      await cancelTenant(admin, 'perez');
+      await prisma.tenant.update({
+        where: { id: tenantId },
+        data: { purgeAfter: new Date(Date.now() - 1000) },
+      });
+      await expect(reactivateTenant(root, tenantId)).rejects.toMatchObject({ code: 'CONFLICT' });
     });
 
     it('physically deletes every row and object of the tenant after 30 days, and nobody else s', async () => {

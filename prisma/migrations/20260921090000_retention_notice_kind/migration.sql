@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ReminderKind" ADD VALUE 'RETENTION_NOTICE';

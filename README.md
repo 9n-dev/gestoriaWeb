@@ -269,8 +269,9 @@ separator. See ADR 0025–0026.
   `DPA_VERSION` when you change it (everybody is asked again).
 - **Ajustes → Datos y privacidad**: export everything (ZIP of CSVs + files, built by the worker, link by
   email, 7 days), export or erase one client (30 days of grace, reversible; invoices are kept by law),
-  document retention (default 6 years) and cancelling the gestoría (portal closes, export by email,
-  physical purge of rows and bucket after 30 days). The daily `cleanup` job runs the sweep.
+  document retention (default 6 years; the admins get a monthly notice and nothing is deleted that a
+  notice at least 15 days old did not announce) and cancelling the gestoría (portal closes, export by email,
+  physical purge of rows and bucket after 30 days; until then the platform's superadmin can undo it). The daily `cleanup` job runs the sweep.
 - **Ajustes → Soporte**: opens a read-only, expiring, audited window for the platform's support team.
 
 See ADR 0028–0030.

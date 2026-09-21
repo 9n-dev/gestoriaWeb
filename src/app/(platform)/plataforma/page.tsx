@@ -1,11 +1,16 @@
 import Link from 'next/link';
 import { AppHeader } from '@/components/app-header';
 import { env } from '@/env';
+import { formatLongDate } from '@/lib/dates';
 import { TENANT_STATUS } from '@/lib/labels';
 import { requireArea } from '@/modules/auth/area';
 import { listTenants } from '@/modules/tenants/service';
 import { createTenantAction } from '../actions';
-import { TenantRegistrationForm, TenantStatusButton } from '../tenant-forms';
+import {
+  ReactivateTenantButton,
+  TenantRegistrationForm,
+  TenantStatusButton,
+} from '../tenant-forms';
 
 export default async function PlatformHomePage() {
   const user = await requireArea('area.platform');
@@ -55,7 +60,14 @@ export default async function PlatformHomePage() {
                   <td className="py-2 pr-4">
                     {tenant.slug}.{env.APP_DOMAIN}
                   </td>
-                  <td className="py-2 pr-4">{TENANT_STATUS[tenant.status]}</td>
+                  <td className="py-2 pr-4">
+                    {TENANT_STATUS[tenant.status]}
+                    {tenant.status === 'CANCELLED' && tenant.purgeAfter && (
+                      <span className="block text-fg-muted">
+                        Se borra el {formatLongDate(tenant.purgeAfter)}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2 pr-4">{tenant._count.users}</td>
                   <td className="py-2 pr-4">{tenant._count.clients}</td>
                   <td className="flex flex-wrap items-center gap-3 py-2">
@@ -64,6 +76,11 @@ export default async function PlatformHomePage() {
                         Modo soporte
                       </Link>
                     )}
+                    {tenant.status === 'CANCELLED' &&
+                      tenant.purgeAfter &&
+                      tenant.purgeAfter > new Date() && (
+                        <ReactivateTenantButton tenantId={tenant.id} />
+                      )}
                     {(tenant.status === 'ACTIVE' || tenant.status === 'SUSPENDED') && (
                       <TenantStatusButton
                         tenantId={tenant.id}

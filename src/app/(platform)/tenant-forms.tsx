@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { Field } from '@/components/ui/field';
 import { ActionForm, SubmitButton, type FormState } from '@/components/ui/form';
-import { setTenantStatusAction, verifyRegistrationAction } from './actions';
+import { reactivateTenantAction, setTenantStatusAction, verifyRegistrationAction } from './actions';
 
 /** Shared by public sign-up and by the superadmin's "new tenant" form. */
 export function TenantRegistrationForm({
@@ -59,6 +59,17 @@ export function VerifyForm({ token }: { token: string }) {
     <ActionForm action={verifyRegistrationAction}>
       <input type="hidden" name="token" value={token} />
       <SubmitButton pendingLabel="Activando…">Activar el portal</SubmitButton>
+    </ActionForm>
+  );
+}
+
+/** A cancelled gestoría inside its 30 days of grace: undo the cancellation. */
+export function ReactivateTenantButton({ tenantId }: { tenantId: string }) {
+  return (
+    <ActionForm action={reactivateTenantAction.bind(null, tenantId)}>
+      <SubmitButton variant="ghost" pendingLabel="…">
+        Anular la baja
+      </SubmitButton>
     </ActionForm>
   );
 }
