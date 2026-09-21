@@ -42,6 +42,13 @@ async function staff(browser: Browser) {
   await shoot(page, '/panel/facturacion', 'facturacion');
   await shoot(page, '/panel/ajustes/marca', 'ajustes-marca');
   await shoot(page, '/panel/ajustes/datos', 'ajustes-datos', true);
+  await shoot(page, '/panel/exportar', 'exportar');
+  await shoot(page, '/panel/ajustes/equipo', 'ajustes-equipo');
+  await shoot(page, '/panel/ajustes/facturacion', 'ajustes-facturacion');
+  await shoot(page, '/panel/ajustes/recordatorios', 'ajustes-recordatorios', true);
+  await shoot(page, '/panel/ajustes/perfiles-fiscales', 'ajustes-perfiles-fiscales');
+  await shoot(page, '/panel/ajustes/dominio', 'ajustes-dominio', true);
+  await shoot(page, '/panel/ajustes/soporte', 'ajustes-soporte');
 
   // The client with the richest record: documents, obligations, conversations, fees.
   await page.goto(`${BASE}/panel/clientes`);
@@ -61,6 +68,28 @@ async function staff(browser: Browser) {
   await context.close();
 }
 
+/** The platform host: what the superadmin sees, and the public sign-up. */
+async function platform(browser: Browser) {
+  const origin = BASE.replace('perez.', '');
+  const context = await browser.newContext({
+    viewport: { width: 1360, height: 1000 },
+    locale: 'es-ES',
+  });
+  const page = await context.newPage();
+  await page.goto(`${origin}/registro`);
+  await page.screenshot({ path: `${OUT}/registro.png` });
+  await page.goto(`${origin}/acceso`);
+  const form = page.locator('form', { has: page.getByLabel('Contraseña') });
+  await form.getByLabel('Correo electrónico').fill('superadmin@demo.es');
+  await form.getByLabel('Contraseña').fill('demo1234');
+  await form.getByRole('button', { name: 'Entrar' }).click();
+  await page.waitForURL(/plataforma/);
+  await page.waitForLoadState('networkidle');
+  await page.screenshot({ path: `${OUT}/plataforma.png` });
+  console.info('  registro.png, plataforma.png');
+  await context.close();
+}
+
 async function client(browser: Browser, colorScheme: 'light' | 'dark') {
   const context = await browser.newContext({ ...devices['Pixel 7'], locale: 'es-ES', colorScheme });
   const page = await context.newPage();
@@ -74,6 +103,11 @@ async function client(browser: Browser, colorScheme: 'light' | 'dark') {
     await shoot(page, '/entregas', 'movil-entregas');
     await shoot(page, '/facturas', 'movil-facturas');
     await shoot(page, '/ayuda', 'movil-ayuda');
+    await shoot(page, '/documentos', 'movil-documentos');
+    await shoot(page, '/mensajes', 'movil-mensajes');
+    await shoot(page, '/cuenta', 'movil-cuenta', true);
+    await shoot(page, '/acceso/2fa?activar=1', 'movil-2fa', true);
+    await shoot(page, '/ayuda/sin-conexion', 'movil-ayuda-articulo', true);
   }
   await context.close();
 }
@@ -82,6 +116,7 @@ async function client(browser: Browser, colorScheme: 'light' | 'dark') {
   // The full browser in its new headless mode: the old headless shell has no PDF viewer for the inbox preview.
   const browser = await chromium.launch({ channel: 'chromium' });
   await staff(browser);
+  await platform(browser);
   await client(browser, 'light');
   await client(browser, 'dark');
   await browser.close();

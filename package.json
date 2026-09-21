@@ -1,6 +1,19 @@
 {
   "name": "gestoria-portal",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "Multi-tenant, white-label client portal for small Spanish accounting firms: document intake, tax deadlines, messaging, billing and GDPR operations.",
+  "keywords": [
+    "saas",
+    "multi-tenant",
+    "white-label",
+    "nextjs",
+    "prisma",
+    "postgresql",
+    "bullmq",
+    "pwa",
+    "gestoria",
+    "spain"
+  ],
   "private": true,
   "engines": {
     "node": ">=22"
@@ -21,6 +34,7 @@
     "worker": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/worker.ts",
     "job:daily": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/run-daily.ts",
     "screenshots": "tsx scripts/screenshots.ts",
+    "demo:gifs": "tsx scripts/demo-gifs.ts",
     "job:demo-reset": "tsx --env-file-if-exists=.env --conditions=react-server src/jobs/run-demo-reset.ts"
   },
   "prisma": {
