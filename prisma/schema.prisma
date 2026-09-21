@@ -334,6 +334,7 @@ model User {
 
   totpSecret         String? // encrypted at application level (AES-256-GCM)
   totpEnabledAt      DateTime?
+  totpLastStep       Int? // last 30-second step whose code was accepted: a code never works twice
   recoveryCodeHashes String[] // consumed codes are removed
   failedLoginCount   Int       @default(0)
   lockedUntil        DateTime?

@@ -4,7 +4,7 @@ import { ZodError } from 'zod';
 import { reportError } from '@/lib/report-error';
 import { AppError, toUserMessage } from '@/lib/errors';
 import type { AuthenticatedUser } from '@/modules/auth/service';
-import { getSessionUser } from '@/modules/auth/session';
+import { getSessionUser, mustAcceptAgreements } from '@/modules/auth/session';
 
 /**
  * Thin JSON route handler: authenticated user in, service result out. AppErrors keep their status
@@ -21,6 +21,14 @@ export function apiRoute<Context>(
           { error: 'Tu sesión ha caducado. Vuelve a entrar.' },
           { status: 401 },
         );
+      if (await mustAcceptAgreements(user)) {
+        return NextResponse.json(
+          {
+            error: 'Antes de continuar, acepta el contrato de encargo de tratamiento en el portal.',
+          },
+          { status: 403 },
+        );
+      }
       const result = await handler(user, request, context);
       return result instanceof Response ? result : NextResponse.json(result ?? {});
     } catch (error) {

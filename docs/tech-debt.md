@@ -11,7 +11,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-014 | — | **Prisma 6 → 8 upgrade** once v8 is stable (ADR 0011). ESLint 9 and TypeScript 5.9 are pinned for `eslint-config-next@15` compatibility. |
 | TD-015 | — | **MinIO image comes from quay.io**: MinIO stopped publishing to Docker Hub. Revisit if quay.io images stop too (any S3-compatible server works). |
 | TD-016 | — | **Client import is CSV only** (ADR 0014). XLSX needs a large dependency. |
-| TD-018 | — | **`/registro` has no captcha.** It is rate limited per IP since phase 9 (10 per hour) and pending tenants that never verify are swept after 7 days, but a distributed script can still create pending tenants and trigger verification emails. |
 | TD-019 | — | **K/L/M NIFs are accepted by format only** (`lib/tax-id.ts`); their control character is not checked. |
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
 | TD-026 | — | **Client list filters in memory** (`q` search over the scoped list). Fine for hundreds of clients per tenant; move to SQL with pagination if a tenant grows past that. |
@@ -38,10 +37,8 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-057 | — | **Stripe and GoCardless adapters are untested against live accounts**; signatures and idempotency are covered with the documented schemes. There is no SEPA mandate set-up flow: `Client.gocardlessMandateId` must be filled by hand. |
 | TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
 | TD-060 | — | **The new-invoice form takes three lines and one VAT rate**; the service accepts up to 50 lines with their own rates. |
-| TD-061 | — | **A TOTP code can be replayed inside its 30-second window**: the last accepted step is not stored. Needs a `totpLastStep` column; the attacker would already need the password and a live code. |
 | TD-062 | — | **2FA enforcement is off when `DEMO_MODE=true`** so the published demo users work. The feature itself stays on. Never run a real tenant with demo mode. |
 | TD-063 | — | **Data exports are built in memory** (`buildExport`). Fine for a small gestoría; a tenant with many GB needs a streamed ZIP into a multipart upload. |
-| TD-064 | — | **The DPA gate lives in the route-group layouts** (`requireArea`), not in server actions or API routes, and the text is a template that needs the platform owner's legal review. No PDF copy is emailed after accepting. |
 | TD-065 | — | **Rate limiting is a fixed window keyed by `X-Forwarded-For`**: a 2x burst across the boundary is possible, and it trusts the proxy to overwrite that header (see TD-047). |
 | TD-066 | — | **Support mode is one read-only overview page** (figures and client list). Browsing the tenant's panel as superadmin would need a cross-host session; not built. |
 | TD-067 | — | **CSP keeps `style-src 'unsafe-inline'`**: tenant colours are CSS variables in a style attribute and Next inlines critical CSS. Scripts are nonce-only. |
@@ -87,3 +84,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-078 | post-launch | Logos no longer need the browser to be PDF-ready: the server decodes interlaced (Adam7) PNGs, embeds CMYK JPEGs and shrinks big logos to print size. WebP is refused by the server (the worker's file pipeline never accepted it and was deleting such logos seconds after upload); the form converts it to PNG first. Also fixed: a logo-only branding update wiped the colours. |
 | TD-069 | post-launch | Monthly retention notice to the tenant admins (in-app, email, push) with the number of documents due in the next 45 days; retention deletes only what a notice at least 15 days old announced; shortening the period restarts the clock. |
 | TD-068 | post-launch | Platform support can undo a cancellation during its 30 days of grace from the tenants page ("Anular la baja"); the purge date is shown; audited on both sides. |
+| TD-061 | post-launch | A TOTP code works once: the accepted 30-second step is stored (`User.totpLastStep`) and claimed atomically; the same or an older code is refused like a wrong one. |
+| TD-064 | post-launch | The agreement gate moved into `requireUser` and `apiRoute`: pages, server actions and API routes are all closed until the DPA in force is accepted (the legal review of the template text remains the owner's job, see README). |
+| TD-018 | post-launch | Sign-up has a honeypot field on top of the per-IP rate limit and the 7-day sweep of unverified tenants. A real captcha would need an external service; add one if abuse shows up. |

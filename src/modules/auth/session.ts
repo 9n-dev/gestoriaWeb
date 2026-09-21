@@ -3,6 +3,7 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { getCurrentTenant } from '@/modules/tenants/current';
+import { pendingAgreements } from '@/modules/legal/dpa';
 import { can } from './permissions';
 import { loadSessionUser, type AuthenticatedUser } from './service';
 
@@ -23,13 +24,31 @@ export async function getSessionUser(): Promise<AuthenticatedUser | null> {
   return user?.twoFactor === 'ok' ? user : null;
 }
 
-/** For pages, layouts and server actions: the user, or a redirect to the login page. */
-export async function requireUser(): Promise<AuthenticatedUser> {
+/** One lookup per request however many layouts, pages and actions ask. */
+const hasPendingAgreements = cache(
+  async (user: AuthenticatedUser) => (await pendingAgreements(user)).length > 0,
+);
+
+/**
+ * For pages, layouts and server actions: the user, or a redirect to the login page. Nobody works in
+ * the portal — pages or actions — before accepting the data processing agreement in force (§4);
+ * only the screen where it is accepted passes `agreements: 'pending-allowed'`.
+ */
+export async function requireUser(
+  options: { agreements?: 'required' | 'pending-allowed' } = {},
+): Promise<AuthenticatedUser> {
   const user = (await getPendingUser()) ?? redirect('/acceso');
   // A password alone is not a full login for whoever must (or chose to) use a second factor.
   if (user.twoFactor !== 'ok') redirect('/acceso/2fa');
+  if (options.agreements !== 'pending-allowed' && (await hasPendingAgreements(user))) {
+    redirect('/acceso/condiciones');
+  }
   return user;
 }
+
+/** For JSON routes: same rule as `requireUser`, as a boolean instead of a redirect. */
+export const mustAcceptAgreements = (user: AuthenticatedUser): Promise<boolean> =>
+  hasPendingAgreements(user);
 
 /** Landing page of each kind of user. */
 export function homePathFor(user: AuthenticatedUser): string {

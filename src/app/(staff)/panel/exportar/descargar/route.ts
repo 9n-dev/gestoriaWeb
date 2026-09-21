@@ -1,11 +1,11 @@
 import { AppError } from '@/lib/errors';
 import { parsePeriodValue } from '@/lib/periods';
-import { getSessionUser } from '@/modules/auth/session';
+import { getSessionUser, mustAcceptAgreements } from '@/modules/auth/session';
 import { exportDocuments } from '@/modules/documents/export';
 
 export async function GET(request: Request) {
   const user = await getSessionUser();
-  if (!user) return new Response(null, { status: 401 });
+  if (!user || (await mustAcceptAgreements(user))) return new Response(null, { status: 401 });
   const params = new URL(request.url).searchParams;
   const period = parsePeriodValue(params.get('periodo') ?? '');
   if (!period) return new Response('Periodo no válido', { status: 422 });

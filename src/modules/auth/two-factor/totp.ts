@@ -38,15 +38,27 @@ function hotp(secret: Buffer, counter: number): string {
 export const totpAt = (secret: string, timeMs: number): string =>
   hotp(base32Decode(secret), Math.floor(timeMs / 1000 / STEP_SECONDS));
 
-/** RFC 6238 with one step of tolerance each way (clock drift). Constant-time comparison. */
-export function verifyTotp(secret: string, code: string, nowMs: number = Date.now()): boolean {
+/**
+ * RFC 6238 with one step of tolerance each way (clock drift), constant-time comparison. Returns the
+ * 30-second step the code belongs to, so callers can refuse a code that was already used.
+ */
+export function matchTotpStep(
+  secret: string,
+  code: string,
+  nowMs: number = Date.now(),
+): number | null {
   const given = code.replace(/\s/g, '');
-  if (!/^\d{6}$/.test(given)) return false;
-  return [-1, 0, 1].some((drift) => {
-    const expected = totpAt(secret, nowMs + drift * STEP_SECONDS * 1000);
-    return timingSafeEqual(Buffer.from(expected), Buffer.from(given));
-  });
+  if (!/^\d{6}$/.test(given)) return null;
+  const current = Math.floor(nowMs / 1000 / STEP_SECONDS);
+  for (const drift of [0, -1, 1]) {
+    const expected = totpAt(secret, (current + drift) * STEP_SECONDS * 1000);
+    if (timingSafeEqual(Buffer.from(expected), Buffer.from(given))) return current + drift;
+  }
+  return null;
 }
+
+export const verifyTotp = (secret: string, code: string, nowMs: number = Date.now()): boolean =>
+  matchTotpStep(secret, code, nowMs) !== null;
 
 /** What the authenticator app scans. */
 export const otpauthUri = (secret: string, account: string, issuer: string): string =>

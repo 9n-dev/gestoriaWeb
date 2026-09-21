@@ -5,7 +5,13 @@ import { decryptSecret, encryptSecret } from '@/lib/crypto';
 import { AppError } from '@/lib/errors';
 import { recordAudit } from '@/modules/audit/service';
 import { assertCan, type SessionUser } from '../permissions';
-import { generateRecoveryCodes, generateTotpSecret, otpauthUri, verifyTotp } from './totp';
+import {
+  generateRecoveryCodes,
+  generateTotpSecret,
+  matchTotpStep,
+  otpauthUri,
+  verifyTotp,
+} from './totp';
 
 const PURPOSE = 'totp';
 const MAX_FAILED = 5;
@@ -68,7 +74,8 @@ export async function confirmEnrolment(
   const account = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
   if (account.totpEnabledAt || !account.totpSecret)
     throw new AppError('CONFLICT', 'Empieza de nuevo la activación.');
-  if (!verifyTotp(decryptSecret(account.totpSecret, PURPOSE), code)) {
+  const step = matchTotpStep(decryptSecret(account.totpSecret, PURPOSE), code);
+  if (step === null) {
     throw new AppError(
       'VALIDATION',
       'El código no es correcto. Comprueba la hora de tu móvil y vuelve a intentarlo.',
@@ -78,7 +85,11 @@ export async function confirmEnrolment(
   await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },
-      data: { totpEnabledAt: new Date(), recoveryCodeHashes: recoveryCodes.map(hashCode) },
+      data: {
+        totpEnabledAt: new Date(),
+        totpLastStep: step,
+        recoveryCodeHashes: recoveryCodes.map(hashCode),
+      },
     }),
     prisma.userSession.updateMany({
       where: { id: sessionId, userId: user.id },
@@ -116,7 +127,20 @@ export async function verifyChallenge(
 
   const recoveryHash = hashCode(code);
   const usedRecovery = account.recoveryCodeHashes.includes(recoveryHash);
-  if (!usedRecovery && !verifyTotp(decryptSecret(account.totpSecret, PURPOSE), code)) {
+  // A code opens one session, once: the step is claimed atomically, so a code somebody saw over
+  // the shoulder (or replayed inside its 30 seconds) is as good as a wrong one.
+  const step = usedRecovery
+    ? null
+    : matchTotpStep(decryptSecret(account.totpSecret, PURPOSE), code);
+  const fresh =
+    step !== null &&
+    (
+      await prisma.user.updateMany({
+        where: { id: user.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] },
+        data: { totpLastStep: step },
+      })
+    ).count === 1;
+  if (!usedRecovery && !fresh) {
     const { failedLoginCount } = await prisma.user.update({
       where: { id: user.id },
       data: { failedLoginCount: { increment: 1 } },
@@ -178,7 +202,7 @@ export async function disableTwoFactor(user: SessionUser, code: string): Promise
     throw new AppError('VALIDATION', 'El código no es correcto.');
   await prisma.user.update({
     where: { id: user.id },
-    data: { totpSecret: null, totpEnabledAt: null, recoveryCodeHashes: [] },
+    data: { totpSecret: null, totpEnabledAt: null, totpLastStep: null, recoveryCodeHashes: [] },
   });
   await recordAudit({
     tenantId: user.tenantId,
@@ -194,7 +218,7 @@ export async function resetTwoFactor(admin: SessionUser, userId: string): Promis
   assertCan(admin, 'user.manage');
   const { count } = await prisma.user.updateMany({
     where: { id: userId, tenantId: admin.tenantId ?? '__none__' },
-    data: { totpSecret: null, totpEnabledAt: null, recoveryCodeHashes: [] },
+    data: { totpSecret: null, totpEnabledAt: null, totpLastStep: null, recoveryCodeHashes: [] },
   });
   if (count === 0) throw new AppError('NOT_FOUND', 'No encontramos ese usuario.');
   await prisma.userSession.updateMany({
