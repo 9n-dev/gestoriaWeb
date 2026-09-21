@@ -1,25 +1,83 @@
 # Portal de clientes para gestorías
 
-Multi-tenant, white-label client portal for small Spanish accounting firms (_gestorías_). It sits
-between the gestoría and its clients to organise document intake, tax deadlines and communication.
+A multi-tenant, white-label SaaS for small Spanish accounting firms (_gestorías_, 1 to 10 people). It does
+not replace their accounting program: it sits between the gestoría and its clients (freelancers and small
+companies) and puts order in the three things that eat their week — chasing documents, tax deadlines and
+scattered conversations. Each gestoría runs it on its own domain, with its logo and colours.
 
-The product specification is [`CLAUDE.md`](CLAUDE.md). The approved folder structure, data model
-summary and permission matrix are in [`docs/foundation.md`](docs/foundation.md); the reasoning behind
-each decision is in [`docs/adr/`](docs/adr). Known shortcuts live in
-[`docs/tech-debt.md`](docs/tech-debt.md).
+The interface, emails and help are in Spanish; code, commits and documentation are in English.
 
-**Status: all 10 phases done.** Sign-up and onboarding, clients and tax obligations, document intake
-(web, PWA with offline queue, email) with a manager inbox, AI extraction and accounting export, checklists
-with a traffic light, filings, daily reminders, messaging (also by replying to emails), notifications with web
-push, deliveries with simple signature, billing with online payments, complete white label, security (2FA,
-rate limiting, CSP, revocable sessions, support mode), GDPR operations, help centre and demo mode. What is
-knowingly left for later is listed, item by item, in [`docs/tech-debt.md`](docs/tech-debt.md); the
-"definition of done" of the spec is checked at the [end of this file](#definition-of-done).
+| The client photographs an invoice from the phone                                                                                                                                     | The manager works through the inbox with the keyboard only                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/screenshots/demo-cliente-sube.gif" alt="A client opens the portal on a phone, taps Subir documentos, the photo uploads and shows up in Mis documentos" width="260" /> | <img src="docs/screenshots/demo-gestor-teclado.gif" alt="A manager moves through the inbox with J and K, confirms the extracted data with Enter, books with B and opens the reject dialog with R" width="640" /> |
+
+Both recorded from the demo data with `npm run demo:gifs`. Every name, tax id and document shown anywhere
+in this repository is synthetic.
+
+## What it does
+
+- **Document intake** from the web, an installable PWA with camera access, or by forwarding an email.
+  Uploads go straight to the bucket in resumable parts, survive a lost connection (IndexedDB queue) and pass
+  an antivirus and duplicate check before anybody can open them.
+- **A keyboard-driven inbox** for the gestoría: preview on the right, `J`/`K` to move, `B` book, `R` reject
+  with a reason, `D` duplicate, `E` edit, `Enter` confirm, `L` read again with AI.
+- **AI extraction** of supplier, tax id, number, date, base, VAT and total (Claude with vision behind a
+  `DocumentExtractor` interface), validated, retried once, with a confidence indicator and token usage per
+  tenant.
+- **Tax calendar**: obligations generated from each client's tax profile (303, 130, 111, 115, 390, 180,
+  200...), real deadlines on business days, checklists per period, a traffic light per client and
+  escalating reminders that name exactly what is missing.
+- **Conversations** per client and subject, internal threads with mentions, replies by email that land in
+  the thread, in-app, email and web push notifications.
+- **Deliveries with a simple signature**: timestamp, IP, user agent and the SHA-256 of the exact file, with
+  a PDF certificate.
+- **Billing of the gestoría to its clients**: monthly fees, gap-free numbering under a row lock, invoices
+  chained by hash (Verifactu-ready), PDF with a vector QR, Stripe and GoCardless behind one interface,
+  idempotent webhooks, dunning.
+- **White label**: logo, colours with automatic contrast checks (and a dark-theme variant computed for
+  them), custom domain verified by DNS, sending domain with SPF/DKIM/DMARC status, editable emails.
+- **Security and GDPR**: tenant isolation proven by a test that enumerates every model, one `can()` for all
+  permissions, TOTP 2FA with single-use codes, revocable sessions, nonce-based CSP, rate limiting,
+  append-only audit log, data processing agreements on record, client export and erasure, retention with
+  notice, tenant export and physical purge.
+
+## In numbers
+
+|                                     |                                                                                                                                                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Application code                    | about 24,000 lines of TypeScript in `src/`, strict mode, no `any`, no `@ts-ignore`                                                                                                                                         |
+| Tests                               | 491 unit and integration tests in 66 files (Vitest, real PostgreSQL) and 18 end-to-end tests in 10 specs (Playwright), also run against the production build                                                               |
+| Data model                          | 36 Prisma models, 8 migrations, each with a hand-written `down.sql`                                                                                                                                                        |
+| Decisions                           | 35 architecture decision records in [`docs/adr/`](docs/adr)                                                                                                                                                                |
+| Runtime dependencies                | 17. PDF writer, PNG decoder, ZIP and XLSX reader and writer, TOTP, QR drawing, Markdown renderer and Sentry-compatible error reporting are written in-house on top of `node:crypto` and `node:zlib` (see the ADRs for why) |
+| Lighthouse (mobile, client screens) | performance 97 to 100, accessibility 100, on the local production build (2026-09-21)                                                                                                                                       |
+| Known shortcuts                     | listed one by one, open and closed, in [`docs/tech-debt.md`](docs/tech-debt.md)                                                                                                                                            |
+
+## Stack
+
+Next.js 15 (App Router, Server Components) · TypeScript · Tailwind CSS 4 · PostgreSQL with Prisma · Auth.js
+v5 · S3-compatible storage (MinIO in development, Cloudflare R2 in production) · BullMQ on Redis · Resend ·
+Anthropic API · Zod at every boundary · Vitest and Playwright · Docker Compose for development · GitHub
+Actions.
+
+## Contents
+
+- [Screenshots](#screenshots)
+- [Getting started](#getting-started) · [Scripts](#scripts) · [Environment variables](#environment-variables)
+- [Architecture](#architecture) ([diagrams](docs/architecture.md))
+- Modules: [Documents](#documents) · [Checklists, filings and reminders](#checklists-filings-and-reminders) ·
+  [Messaging](#messaging-notifications-and-deliveries) · [Billing](#billing) ·
+  [AI extraction and export](#ai-extraction-and-accounting-export) · [Security and GDPR](#security-and-gdpr) ·
+  [PWA, offline and help](#pwa-offline-and-help) · [White label](#white-label)
+- [Deployment](#deployment) · [Fiscal reference data](#fiscal-reference-data)
+- [Definition of done](#definition-of-done) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
+
+The product specification is [`CLAUDE.md`](CLAUDE.md). The approved folder structure, data model summary
+and permission matrix are in [`docs/foundation.md`](docs/foundation.md).
 
 ## Screenshots
 
-All taken from the demo data (`npm run db:seed`, `DEMO_MODE=true`) with `npm run screenshots`; every name,
-tax id and document in them is synthetic.
+Taken from the demo data (`npm run db:seed`, `DEMO_MODE=true`) with `npm run screenshots`.
 
 ### The gestoría's panel
 
@@ -31,18 +89,32 @@ tax id and document in them is synthetic.
 | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | ![Dashboard: clients in red, documents to process, filings of the week, load per manager](docs/screenshots/panel.png) | ![Client record with checklist, obligations and access](docs/screenshots/cliente-ficha.png) |
 
-| Tax deadlines                                                                  | Conversation with a client                                                         |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| ![Upcoming tax deadlines of all clients](docs/screenshots/plazos-gestoria.png) | ![A thread between the gestoría and its client](docs/screenshots/conversacion.png) |
+| Tax deadlines                                                                  | Conversation with a client                                                                                   |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| ![Upcoming tax deadlines of all clients](docs/screenshots/plazos-gestoria.png) | ![A tax-office requirement discussed between the gestoría and its client](docs/screenshots/conversacion.png) |
 
-| Billing                                                                                          | White label settings                                                                            |
-| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| ![Invoices issued by the gestoría and the manual invoice form](docs/screenshots/facturacion.png) | ![Branding: logo, colours with contrast check, sender name](docs/screenshots/ajustes-marca.png) |
+| Billing                                                                                              | Accounting export                                                                             |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| ![Invoices issued by the gestoría and the multi-line invoice form](docs/screenshots/facturacion.png) | ![Export of a period to XLSX or CSV with the tenant's columns](docs/screenshots/exportar.png) |
 
 <details>
-<summary>Data and privacy settings (GDPR operations)</summary>
+<summary>Settings: branding, domain, team, billing, reminders, tax profiles, data and privacy, support mode</summary>
 
-![Export, client erasure, retention and cancellation](docs/screenshots/ajustes-datos.png)
+|                                                                                                         |                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| ![Branding: logo, colours with contrast check, sender name](docs/screenshots/ajustes-marca.png)         | ![Custom domain and sending domain with DNS instructions](docs/screenshots/ajustes-dominio.png)                      |
+| ![Team: roles, disabling with hand-over of clients, 2FA reset](docs/screenshots/ajustes-equipo.png)     | ![Billing settings: payment term, reminders, delinquency, series](docs/screenshots/ajustes-facturacion.png)          |
+| ![Reminder wording per step, with preview](docs/screenshots/ajustes-recordatorios.png)                  | ![Tax profiles: system templates that the gestoría clones and edits](docs/screenshots/ajustes-perfiles-fiscales.png) |
+| ![GDPR operations: export, client erasure, retention, cancellation](docs/screenshots/ajustes-datos.png) | ![Support mode: a read-only, expiring window for the platform's support](docs/screenshots/ajustes-soporte.png)       |
+
+</details>
+
+<details>
+<summary>Platform: public sign-up and the superadmin's list of gestorías</summary>
+
+|                                                                |                                                                                                     |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| ![Public sign-up of a gestoría](docs/screenshots/registro.png) | ![Superadmin: tenants, status, suspension, undo of a cancellation](docs/screenshots/plataforma.png) |
 
 </details>
 
@@ -51,15 +123,29 @@ tax id and document in them is synthetic.
 <p>
   <img src="docs/screenshots/movil-inicio.png" alt="Client home: what is missing and for when" width="230" />
   <img src="docs/screenshots/movil-subir.png" alt="Upload: camera or files, resumable" width="230" />
+  <img src="docs/screenshots/movil-documentos.png" alt="The client's documents and their status" width="230" />
   <img src="docs/screenshots/movil-plazos.png" alt="The client's tax deadlines" width="230" />
-  <img src="docs/screenshots/movil-inicio-oscuro.png" alt="Dark theme: the brand colour is lightened until it reads" width="230" />
 </p>
 <p>
+  <img src="docs/screenshots/movil-mensajes.png" alt="Conversations with the gestoría" width="230" />
   <img src="docs/screenshots/movil-entregas.png" alt="Deliveries from the gestoría, some to sign" width="230" />
   <img src="docs/screenshots/movil-facturas.png" alt="Invoices of the gestoría, payable online" width="230" />
-  <img src="docs/screenshots/movil-ayuda.png" alt="Help centre" width="230" />
-  <img src="docs/screenshots/acceso.png" alt="Login page under the tenant's brand" width="230" />
+  <img src="docs/screenshots/movil-inicio-oscuro.png" alt="Dark theme: the brand colour is lightened until it reads" width="230" />
 </p>
+
+<details>
+<summary>Account, two-step verification, help centre and login</summary>
+
+<p>
+  <img src="docs/screenshots/movil-cuenta.png" alt="Account: password, 2FA, open sessions, notification preferences" width="230" />
+  <img src="docs/screenshots/movil-2fa.png" alt="Enrolling in two-step verification with a QR code" width="230" />
+  <img src="docs/screenshots/movil-ayuda.png" alt="Help centre" width="230" />
+  <img src="docs/screenshots/movil-ayuda-articulo.png" alt="A help article, rendered from Markdown" width="230" />
+</p>
+
+![Login page under the tenant's brand, with the demo users](docs/screenshots/acceso.png)
+
+</details>
 
 ### Generated documents
 
@@ -165,6 +251,20 @@ Later phases add Anthropic (extraction), Stripe and GoCardless, each behind an i
 implementation.
 
 ## Architecture
+
+```mermaid
+flowchart LR
+  B[Browser: PWA, service worker, IndexedDB queue] --> A[Next.js on Vercel: middleware, pages, actions, routes]
+  B -- multipart parts, presigned --> S[(S3: R2 / MinIO)]
+  A --> P[(PostgreSQL via tenantDb)]
+  A -- jobs, rate limits --> R[(Redis)]
+  R --> W[BullMQ worker: files and scheduled queues]
+  W --> P
+  W --> S
+  A & W --> X[Resend, Anthropic, Stripe, GoCardless, ClamAV: each behind an interface with a dev fake]
+```
+
+More diagrams (a request, a file, the daily job, an invoice) in [`docs/architecture.md`](docs/architecture.md).
 
 ```
 src/
@@ -412,11 +512,11 @@ Obligations for year N+1 are generated from 1 December of year N, so the file mu
 
 Checked against §9 of the spec (`CLAUDE.md`):
 
-| Requirement                                                                                                                          | Where it is demonstrated                                                                                                                                                                                                                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A gestoría signs up, brands itself, imports and invites clients and receives documents on its own domain without manual intervention | `e2e/onboarding.spec.ts` (sign-up → agreement → wizard → 20 invited clients), `e2e/upload-and-book.spec.ts`; custom domains verify by DNS TXT and attach through `DomainProvider` (needs `VERCEL_*` keys in production, fake adapter otherwise)                                      |
-| No tenant-isolation test fails; no endpoint returns data without `can()`                                                             | `src/modules/tenants/isolation.test.ts` enumerates every tenant model from the Prisma schema and every listing service; all data access goes through services that call `assertCan` and `tenantDb`                                                                                   |
-| Lighthouse mobile ≥ 90 performance, ≥ 95 accessibility on client screens                                                             | Production build on localhost, 2026-09-19: `/acceso` 96/100, `/inicio` 100/100, `/subir` 95/100, `/documentos` 99/100, `/plazos`, `/mensajes`, `/entregas`, `/facturas` 100/100, `/cuenta` 99/100. Re-run: `npx lighthouse <url> --form-factor=mobile --extra-headers=<cookie json>` |
-| A manager processes 50 documents in a row with the keyboard only                                                                     | Inbox shortcuts (J/K move, B book, Enter confirm, R reject, D duplicate, E edit fields); `e2e/upload-and-book.spec.ts` books and rejects by keyboard                                                                                                                                 |
-| A whole tenant can be exported and deleted and the system is left clean                                                              | `src/modules/gdpr/gdpr.test.ts`: after the purge every tenant-owned model counts 0, the bucket prefix is empty and the neighbour tenant is untouched                                                                                                                                 |
-| Documented and demonstrable in demo mode                                                                                             | This file; `npm run db:seed` + `DEMO_MODE=true`                                                                                                                                                                                                                                      |
+| Requirement                                                                                                                          | Where it is demonstrated                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A gestoría signs up, brands itself, imports and invites clients and receives documents on its own domain without manual intervention | `e2e/onboarding.spec.ts` (sign-up → agreement → wizard → 20 invited clients), `e2e/upload-and-book.spec.ts`; custom domains verify by DNS TXT and attach through `DomainProvider` (needs `VERCEL_*` keys in production, fake adapter otherwise)                                                                                         |
+| No tenant-isolation test fails; no endpoint returns data without `can()`                                                             | `src/modules/tenants/isolation.test.ts` enumerates every tenant model from the Prisma schema and every listing service; all data access goes through services that call `assertCan` and `tenantDb`                                                                                                                                      |
+| Lighthouse mobile ≥ 90 performance, ≥ 95 accessibility on client screens                                                             | Production build on localhost, 2026-09-21 (performance/accessibility): `/acceso` 97/100, `/inicio` 100/100, `/subir` 100/100, `/documentos` 100/100, `/plazos` 100/100, `/mensajes` 98/100, `/entregas` 99/100, `/facturas` 99/100, `/cuenta` 99/100. Re-run: `npx lighthouse <url> --form-factor=mobile --extra-headers=<cookie json>` |
+| A manager processes 50 documents in a row with the keyboard only                                                                     | Inbox shortcuts (J/K move, B book, Enter confirm, R reject, D duplicate, E edit fields); `e2e/upload-and-book.spec.ts` books and rejects by keyboard                                                                                                                                                                                    |
+| A whole tenant can be exported and deleted and the system is left clean                                                              | `src/modules/gdpr/gdpr.test.ts`: after the purge every tenant-owned model counts 0, the bucket prefix is empty and the neighbour tenant is untouched                                                                                                                                                                                    |
+| Documented and demonstrable in demo mode                                                                                             | This file; `npm run db:seed` + `DEMO_MODE=true`                                                                                                                                                                                                                                                                                         |
