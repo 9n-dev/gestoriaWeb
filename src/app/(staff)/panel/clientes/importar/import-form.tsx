@@ -42,13 +42,13 @@ export function ImportForm() {
     >
       <div className="flex flex-col gap-1.5">
         <label htmlFor="file" className="text-sm font-medium">
-          Archivo CSV
+          Archivo Excel (.xlsx) o CSV
         </label>
         <input
           id="file"
           name="file"
           type="file"
-          accept=".csv,text/csv"
+          accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           required
           className="text-sm"
         />

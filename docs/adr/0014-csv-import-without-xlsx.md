@@ -18,3 +18,7 @@ CSV only for now. The parser autodetects `;` and `,`, handles quotes and BOM, an
 ## Consequences
 
 - Users must "Save as CSV". If real gestorías stumble on this, add XLSX reading behind the same `importClients(user, text)` entry point (tech debt TD-016).
+
+## Addendum (2026-09-21)
+
+Excel arrived without the dependency: `.xlsx` is a ZIP of XML, and the import only needs the first sheet as rows of strings. `lib/xlsx-read.ts` (~100 lines over `node:zlib`) reads the central directory, the shared strings and the cells, with a 20 MB ceiling per entry against zip bombs. `.xls` (the old binary format) is still refused, with a message that says how to save the file.

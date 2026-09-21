@@ -29,7 +29,7 @@ export default async function ClientsPage({
         <div className="flex gap-2">
           {can(user, 'client.import') && (
             <Link href="/panel/clientes/importar" className={linkButton}>
-              Importar CSV
+              Importar Excel o CSV
             </Link>
           )}
           {can(user, 'client.create') && (

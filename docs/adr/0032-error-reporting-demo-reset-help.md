@@ -14,5 +14,5 @@ Date: 2026-09-19 · Status: accepted
 
 ## Consequences
 
-- Browser-side errors are not reported (TD-075). Adding the SDK later only replaces `reportError`'s body.
+- Browser-side errors reach the same tracker through `/api/errors` (added later, still without SDK): message, stack and path only.
 - Articles cannot use tables, images or nested lists until the renderer grows or is replaced.

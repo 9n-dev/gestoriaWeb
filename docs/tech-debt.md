@@ -10,7 +10,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-010 | — | **Down migrations are manual.** Prisma has no native rollback: each migration folder carries a hand-written `down.sql`. CI does not verify them. |
 | TD-014 | — | **Prisma 6 → 8 upgrade** once v8 is stable (ADR 0011). ESLint 9 and TypeScript 5.9 are pinned for `eslint-config-next@15` compatibility. |
 | TD-015 | — | **MinIO image comes from quay.io**: MinIO stopped publishing to Docker Hub. Revisit if quay.io images stop too (any S3-compatible server works). |
-| TD-016 | — | **Client import is CSV only** (ADR 0014). XLSX needs a large dependency. |
 | TD-019 | — | **K/L/M NIFs are accepted by format only** (`lib/tax-id.ts`); their control character is not checked. |
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
 | TD-027 | 5 | **Resend inbound adapter is untested against a live account.** Signature verification and routing are covered; the attachment download endpoint in `inbound/resend.ts` was written from the published API and must be verified with the first real domain. |
@@ -41,7 +40,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-072 | — | **Help centre is fixed content**: ten Spanish articles for clients, no search, not editable per tenant, none for staff. |
 | TD-073 | — | **Lighthouse is run by hand** against the local production build (scores in the README), not in CI, and not on a throttled real device. |
 | TD-074 | — | **The demo reset only recreates `perez` and `otra`**: gestorías that visitors register in a demo environment stay (unverified ones are swept after 7 days). |
-| TD-075 | — | **Only server-side errors are reported** (`onRequestError`, actions, API routes, webhooks, final job failures). Browser errors are not. |
 | TD-079 | — | **One flaky test seen once**: `reminders/service.test.ts` "reminds at 15, 7, 2 and 0 days" failed in one full-suite run on 2026-09-21 and passed in isolation (6 times) and in the next two full runs; the assertion message was not captured. Suspect: ordering of `EmailLog` rows by a millisecond `createdAt`. If it shows up again, capture the message before anything else. |
 
 ## Closed
@@ -88,3 +86,5 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-033 | post-launch | The inbox is a work queue, not an archive: it still shows the first 300 of the filter, and now says how many match in total and that the next ones come in as these are processed. |
 | TD-043 | post-launch | Counters refresh by themselves: the header asks the server again every 60 seconds and when the tab returns to the front, never while somebody types or a dialog is open. |
 | TD-046 | post-launch | Staff can mute a thread (`ThreadRead.muted`): no more notifications for its new messages; mentions still arrive, and if everybody muted it the mute is ignored so a client is always heard. |
+| TD-016 | post-launch | Client import takes .xlsx as well as CSV, read by a small own reader (`lib/xlsx-read.ts`: zip central directory, shared and inline strings, zip-bomb ceiling), checked against a LibreOffice-written workbook; the template downloads in both formats. |
+| TD-075 | post-launch | Browser errors are reported too: `window` error and unhandled rejection listeners plus the error boundary post to `/api/errors` (rate limited, size limited, path without query string), which forwards to the same tracker. |
