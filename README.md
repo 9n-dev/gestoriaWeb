@@ -246,6 +246,8 @@ the inbox and confirm it with `Enter`. Token usage is logged per tenant (Ajustes
 `fixtures/invoices/` holds the 10 synthetic invoices of the acceptance test (`npx tsx fixtures/generate.ts`
 regenerates them). `/panel/exportar` downloads a period as XLSX or CSV with the tenant's columns and decimal
 separator. See ADR 0025–0026.
+A read that failed or came out wrong can be repeated from the inbox ("Leer de nuevo", shortcut `L`): the
+previous reading is discarded, and a document is never read more than three times (each read costs tokens).
 
 ## Security and GDPR
 

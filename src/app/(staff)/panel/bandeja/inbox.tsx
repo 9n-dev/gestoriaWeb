@@ -13,6 +13,7 @@ import type { InboxFilters } from '@/modules/documents/service';
 import {
   bookAction,
   confirmAction,
+  reextractAction,
   deleteViewAction,
   duplicateAction,
   rejectAction,
@@ -68,6 +69,7 @@ const SHORTCUTS = [
   ['R', 'Rechazar'],
   ['D', 'Marcar como duplicado'],
   ['E', 'Editar campos'],
+  ['L', 'Leer de nuevo con IA'],
   ['Enter', 'Confirmar datos'],
   ['Esc', 'Salir del formulario'],
 ] as const;
@@ -157,6 +159,8 @@ export function Inbox({ documents, filters, views, reasons, managers, periods }:
       else if (key === 'd' && ready) run(() => duplicateAction(selected.id));
       else if (key === 'enter' && ready) run(() => confirmAction(selected.id));
       else if (key === 'r' && ready) rejectDialog.current?.showModal();
+      else if (key === 'l' && ready && ['DONE', 'FAILED'].includes(selected.extraction))
+        run(() => reextractAction(selected.id));
       else if (key === 'e')
         fieldsForm.current?.querySelector<HTMLElement>('select, input')?.focus();
       else return;
@@ -317,6 +321,14 @@ export function Inbox({ documents, filters, views, reasons, managers, periods }:
                       disabled={pending || selected.confirmed || selected.fileStatus !== 'CLEAN'}
                       onClick={() => run(() => confirmAction(selected.id))}
                     />
+                    {(selected.extraction === 'DONE' || selected.extraction === 'FAILED') && (
+                      <ActionButton
+                        label="Leer de nuevo"
+                        shortcut="L"
+                        disabled={pending || selected.fileStatus !== 'CLEAN'}
+                        onClick={() => run(() => reextractAction(selected.id))}
+                      />
+                    )}
                   </>
                 ) : (
                   <ActionButton

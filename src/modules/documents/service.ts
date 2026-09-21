@@ -65,7 +65,7 @@ const VISIBLE: Prisma.DocumentWhereInput = {
   file: { status: { not: 'PENDING' } },
 };
 
-const resourceOf = (document: DocumentRow): Resource => ({
+export const resourceOf = (document: DocumentRow): Resource => ({
   tenantId: document.tenantId,
   clientId: document.clientId,
   assignedManagerId: document.client.assignedManagerId,
