@@ -4,7 +4,12 @@ import { requireArea } from '@/modules/auth/area';
 import { can } from '@/modules/auth/permissions';
 import { listAssignableManagers } from '@/modules/clients/service';
 import { listSavedViews } from '@/modules/documents/saved-views';
-import { getRejectionReasons, inboxFiltersSchema, listInbox } from '@/modules/documents/service';
+import {
+  countInbox,
+  getRejectionReasons,
+  inboxFiltersSchema,
+  listInbox,
+} from '@/modules/documents/service';
 import { filtersFromParams } from './filters';
 import { Inbox, type InboxDocument } from './inbox';
 
@@ -17,8 +22,9 @@ export default async function InboxPage({
   const parsed = inboxFiltersSchema.safeParse(filtersFromParams(await searchParams));
   const filters = parsed.success ? parsed.data : inboxFiltersSchema.parse({});
 
-  const [rows, views, reasons, managers] = await Promise.all([
+  const [rows, total, views, reasons, managers] = await Promise.all([
     listInbox(user, filters),
+    countInbox(user, filters),
     listSavedViews(user),
     getRejectionReasons(user.tenantId!),
     can(user, 'dashboard.viewGlobal') ? listAssignableManagers(user) : [],
@@ -58,6 +64,7 @@ export default async function InboxPage({
   return (
     <Inbox
       documents={documents}
+      total={total}
       filters={filters}
       views={views}
       reasons={reasons}

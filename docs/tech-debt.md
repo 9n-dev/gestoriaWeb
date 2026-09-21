@@ -13,10 +13,8 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-016 | — | **Client import is CSV only** (ADR 0014). XLSX needs a large dependency. |
 | TD-019 | — | **K/L/M NIFs are accepted by format only** (`lib/tax-id.ts`); their control character is not checked. |
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
-| TD-026 | — | **Client list filters in memory** (`q` search over the scoped list). Fine for hundreds of clients per tenant; move to SQL with pagination if a tenant grows past that. |
 | TD-027 | 5 | **Resend inbound adapter is untested against a live account.** Signature verification and routing are covered; the attachment download endpoint in `inbound/resend.ts` was written from the published API and must be verified with the first real domain. |
 | TD-031 | — | **Inbound attachments under 5 KB are skipped** as signature logos (`inbound/service.ts`). Replace with Content-Disposition/Content-ID once the provider exposes them. |
-| TD-033 | — | **The inbox loads at most 300 documents** and filters in one query without pagination. |
 | TD-035 | — | **E2E runs against the development database** locally (it re-seeds and leaves its uploads and test tenants behind). CI uses a fresh database. |
 | TD-037 | — | **The traffic-light overview is quarterly.** Clients with monthly VAT keep monthly checklists and are not listed in the quarter view. |
 | TD-038 | — | **Dashboard numbers are computed on every visit** (overview of all clients in memory; average over the last 2 000 processed documents). Cache or pre-aggregate if a tenant grows large. |
@@ -87,3 +85,5 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-018 | post-launch | Sign-up has a honeypot field on top of the per-IP rate limit and the 7-day sweep of unverified tenants. A real captcha would need an external service; add one if abuse shows up. |
 | TD-054 | post-launch | "Leer de nuevo" in the inbox (button and shortcut L): discards the current reading and queues a new extraction; at most 3 reads per document, never on booked documents; audited. |
 | TD-060 | post-launch | Manual invoice form with up to 50 lines, quantity, VAT and IRPF per line and a live total computed with the same `computeTotals` the server uses. |
+| TD-026 | post-launch | Client list searched (name or tax id, LIKE wildcards escaped) and paginated in SQL, 50 per page, inside the user's scope. |
+| TD-033 | post-launch | The inbox is a work queue, not an archive: it still shows the first 300 of the filter, and now says how many match in total and that the next ones come in as these are processed. |

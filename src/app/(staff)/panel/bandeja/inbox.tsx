@@ -56,6 +56,8 @@ export type InboxDocument = {
 
 type Props = {
   documents: InboxDocument[];
+  /** Documents matching the filters, which may be more than the ones loaded. */
+  total: number;
   filters: Required<Pick<InboxFilters, 'statuses' | 'order'>> & InboxFilters;
   views: Array<{ id: string; name: string; filters: InboxFilters }>;
   reasons: string[];
@@ -87,7 +89,7 @@ const chip =
  * Unified document inbox (§6.10). Fully operable from the keyboard: shortcuts act on the selected
  * row and are ignored while typing in a field. 50 documents in a row never need the mouse.
  */
-export function Inbox({ documents, filters, views, reasons, managers, periods }: Props) {
+export function Inbox({ documents, total, filters, views, reasons, managers, periods }: Props) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(documents[0]?.id ?? null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
@@ -176,7 +178,10 @@ export function Inbox({ documents, filters, views, reasons, managers, periods }:
         <h1 className="text-2xl font-semibold">
           Bandeja{' '}
           <span className="text-base font-normal text-fg-muted">
-            · {documents.length} documentos
+            ·{' '}
+            {total > documents.length
+              ? `${documents.length} de ${total} documentos (los siguientes entran al procesar estos)`
+              : `${documents.length} documentos`}
           </span>
         </h1>
         <details className="relative text-sm">

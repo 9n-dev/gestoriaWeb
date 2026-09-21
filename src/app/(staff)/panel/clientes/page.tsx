@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { CLIENT_STATUS } from '@/lib/labels';
 import { requireArea } from '@/modules/auth/area';
 import { can } from '@/modules/auth/permissions';
-import { listClientsFor } from '@/modules/clients/service';
+import { searchClients } from '@/modules/clients/service';
 
 const linkButton =
   'inline-flex min-h-11 items-center rounded-md px-4 text-sm font-medium border border-border hover:bg-surface-muted';
@@ -10,13 +10,17 @@ const linkButton =
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; pagina?: string }>;
 }) {
   const user = await requireArea('area.staff');
-  const query = ((await searchParams).q ?? '').trim().toLowerCase();
-  const clients = (await listClientsFor(user)).filter(
-    (client) => !query || `${client.legalName} ${client.taxId}`.toLowerCase().includes(query),
-  );
+  const params = await searchParams;
+  const query = (params.q ?? '').trim();
+  const { clients, total, page, pages } = await searchClients(user, {
+    query,
+    page: Number(params.pagina),
+  });
+  const pageHref = (target: number) =>
+    `/panel/clientes?${new URLSearchParams({ ...(query ? { q: query } : {}), pagina: String(target) })}`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -90,6 +94,23 @@ export default async function ClientsPage({
             ))}
           </tbody>
         </table>
+      )}
+      {pages > 1 && (
+        <nav aria-label="Páginas de clientes" className="flex items-center gap-4 text-sm">
+          {page > 1 && (
+            <Link href={pageHref(page - 1)} className="underline" rel="prev">
+              Anterior
+            </Link>
+          )}
+          <span className="text-fg-muted">
+            Página {page} de {pages} · {total} clientes
+          </span>
+          {page < pages && (
+            <Link href={pageHref(page + 1)} className="underline" rel="next">
+              Siguiente
+            </Link>
+          )}
+        </nav>
       )}
     </div>
   );

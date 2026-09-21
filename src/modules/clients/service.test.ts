@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '@/lib/db';
 import type { SessionUser } from '@/modules/auth/permissions';
 import { resetDb } from '@tests/setup/db';
-import { createTenant } from '@tests/setup/factories';
+import { createClient as makeClient, createTenant } from '@tests/setup/factories';
 import { sessionUserFor } from '@tests/setup/session';
 import { seedSystemData } from '../../../prisma/system-data';
 import type { StaffClient } from './repository';
 import {
+  searchClients,
   assignManager,
   assignTaxProfile,
   createClient,
@@ -212,5 +213,38 @@ describe('clients service', () => {
         'client.delete',
       ]),
     );
+  });
+});
+
+describe('client search (TD-026)', () => {
+  it('searches by name or tax id in SQL, paginates, and stays inside the manager scope', async () => {
+    await resetDb();
+    const tenantId = (await createTenant()).id;
+    const manager = await sessionUserFor(tenantId, 'MANAGER');
+    const supervisor = await sessionUserFor(tenantId, 'SUPERVISOR');
+    for (let i = 0; i < 60; i++) {
+      await makeClient(tenantId, {
+        legalName: `Panadería ${String(i).padStart(2, '0')}`,
+        taxId: `B${String(1000000 + i)}X`,
+        assignedManagerId: i < 5 ? manager.id : null,
+      });
+    }
+    await makeClient(tenantId, { legalName: 'Ferretería Ñu', taxId: 'A7654321Z' });
+    await makeClient((await createTenant()).id, { legalName: 'Panadería ajena' });
+
+    const first = await searchClients(supervisor, { query: 'panader' });
+    expect(first).toMatchObject({ total: 60, page: 1, pages: 2 });
+    expect(first.clients).toHaveLength(50);
+    expect(first.clients[0]?.legalName).toBe('Panadería 00');
+    const second = await searchClients(supervisor, { query: 'PANADER', page: 2 });
+    expect(second.clients).toHaveLength(10);
+
+    expect(
+      (await searchClients(supervisor, { query: 'a7654321' })).clients.map((c) => c.legalName),
+    ).toEqual(['Ferretería Ñu']);
+    expect((await searchClients(manager, { query: 'panader' })).total).toBe(5);
+    expect((await searchClients(supervisor, { query: '%' })).total).toBe(0); // LIKE wildcards are data, not syntax
+    const client = await sessionUserFor(tenantId, 'CLIENT_USER');
+    await expect(searchClients(client)).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 });
