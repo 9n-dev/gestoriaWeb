@@ -1,5 +1,7 @@
 # Portal de clientes para gestorías
 
+[![CI](https://github.com/9n-dev/gestoriaWeb/actions/workflows/ci.yml/badge.svg)](https://github.com/9n-dev/gestoriaWeb/actions/workflows/ci.yml)
+
 A multi-tenant, white-label SaaS for small Spanish accounting firms (_gestorías_, 1 to 10 people). It does
 not replace their accounting program: it sits between the gestoría and its clients (freelancers and small
 companies) and puts order in the three things that eat their week — chasing documents, tax deadlines and
