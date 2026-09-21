@@ -23,3 +23,22 @@ describe('contrast', () => {
     expect(brandingWarnings({})).toEqual([]);
   });
 });
+
+describe('brand colours in the dark theme (TD-050)', () => {
+  it('lightens a dark brand colour until it reads on the dark surface, keeping its hue', async () => {
+    const { adaptForDarkTheme, contrastRatio } = await import('./contrast');
+    const navy = '#0f4c81';
+    expect(contrastRatio(navy, '#18181b')).toBeLessThan(3);
+    const adapted = adaptForDarkTheme(navy);
+    expect(contrastRatio(adapted, '#18181b')).toBeGreaterThanOrEqual(4.5);
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(adapted.slice(i, i + 2), 16));
+    expect(b).toBeGreaterThan(g!); // still a blue
+    expect(g).toBeGreaterThan(r!);
+  });
+
+  it('leaves alone a colour that already reads, and survives pure black', async () => {
+    const { adaptForDarkTheme, contrastRatio } = await import('./contrast');
+    expect(adaptForDarkTheme('#60a5fa')).toBe('#60a5fa');
+    expect(contrastRatio(adaptForDarkTheme('#000000'), '#18181b')).toBeGreaterThanOrEqual(4.5);
+  });
+});

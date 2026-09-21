@@ -159,7 +159,7 @@ Scope: **own** = clients linked to the user · **assigned** = clients assigned t
 |---|---|---|---|---|
 | **Clients** | | | | |
 | `client.read` | own (no internal fields) | assigned | all | all |
-| `client.create` (auto-assigned to the creator when a manager) | — | ✓ | all | all |
+| `client.create` (auto-assigned to the creator when a manager) | — | yes | all | all |
 | `client.import` (bulk CSV/XLSX) | — | — | all | all |
 | `client.update` | — | assigned | all | all |
 | `client.delete` (soft) | — | — | all | all |
@@ -186,7 +186,7 @@ Scope: **own** = clients linked to the user · **assigned** = clients assigned t
 | `thread.read` / `thread.create` / `message.send` (non-internal) | own | assigned | all | all |
 | `thread.readInternal` / `message.sendInternal` | — | assigned | all | all |
 | `thread.close` | — | assigned | all | all |
-| `messageTemplate.use` | — | ✓ | ✓ | ✓ |
+| `messageTemplate.use` | — | yes | yes | yes |
 | **Deliveries** | | | | |
 | `delivery.read` / `delivery.download` | own, from `visibleFrom` | assigned | all | all |
 | `delivery.sign` | own | — | — | — |
@@ -197,23 +197,23 @@ Scope: **own** = clients linked to the user · **assigned** = clients assigned t
 | `invoice.manage` (draft, issue, cancel, mark paid) | — | — | — | all |
 | `recurringFee.manage` | — | — | — | all |
 | **Dashboards** | | | | |
-| `dashboard.viewOwn` (inbox, own clients' traffic light) | — | ✓ | ✓ | ✓ |
-| `dashboard.viewGlobal` (tenant metrics, load per manager) | — | — | ✓ | ✓ |
-| `savedView.manage` (own) | — | ✓ | ✓ | ✓ |
+| `dashboard.viewOwn` (inbox, own clients' traffic light) | — | yes | yes | yes |
+| `dashboard.viewGlobal` (tenant metrics, load per manager) | — | — | yes | yes |
+| `savedView.manage` (own) | — | yes | yes | yes |
 | **Tenant administration** | | | | |
-| `user.manage` (staff: invite, role, disable, reset 2FA) | — | — | — | ✓ |
-| `branding.manage` / `domain.manage` | — | — | — | ✓ |
-| `template.manage` (messages, emails, reminders) | — | — | — | ✓ |
-| `taxProfile.read` | — | ✓ | ✓ | ✓ |
-| `taxProfile.manage` (clone, edit, archive) | — | — | — | ✓ |
-| `tenantSettings.manage` (reminders, rejection reasons, retention, dunning) | — | — | — | ✓ |
-| `audit.read` | — | — | — | ✓ |
-| `data.exportClient` / `data.eraseClient` | — | — | — | ✓ |
-| `data.exportTenant` / `tenant.cancel` | — | — | — | ✓ |
-| `support.grant` / `support.revoke` | — | — | — | ✓ |
-| `sampleData.delete` | — | — | — | ✓ |
+| `user.manage` (staff: invite, role, disable, reset 2FA) | — | — | — | yes |
+| `branding.manage` / `domain.manage` | — | — | — | yes |
+| `template.manage` (messages, emails, reminders) | — | — | — | yes |
+| `taxProfile.read` | — | yes | yes | yes |
+| `taxProfile.manage` (clone, edit, archive) | — | — | — | yes |
+| `tenantSettings.manage` (reminders, rejection reasons, retention, dunning) | — | — | — | yes |
+| `audit.read` | — | — | — | yes |
+| `data.exportClient` / `data.eraseClient` | — | — | — | yes |
+| `data.exportTenant` / `tenant.cancel` | — | — | — | yes |
+| `support.grant` / `support.revoke` | — | — | — | yes |
+| `sampleData.delete` | — | — | — | yes |
 | **Self-service** (any active user, own account only) | | | | |
-| `account.update`, `account.manage2fa`, `account.revokeSessions`, `notification.read`, `notification.managePrefs`, `push.subscribe` | ✓ | ✓ | ✓ | ✓ |
+| `account.update`, `account.manage2fa`, `account.revokeSessions`, `notification.read`, `notification.managePrefs`, `push.subscribe` | yes | yes | yes | yes |
 
 ### 3.3 SUPERADMIN (platform)
 

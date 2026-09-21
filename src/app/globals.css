@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* Brand tokens. Phase 6 overrides --color-primary/--color-accent per tenant. */
+/* Design tokens. Tenants override primary and accent through --brand-* (see below). */
 @theme {
   --color-primary: #1d4ed8;
   --color-primary-fg: #ffffff;
@@ -13,11 +13,18 @@
   --color-danger: #b91c1c;
 }
 
+/* White label: the layout sets --brand-* on <html>; each theme takes its own variant. */
+:root {
+  --color-primary: var(--brand-primary, #1d4ed8);
+  --color-primary-fg: var(--brand-primary-fg, #ffffff);
+  --color-accent: var(--brand-accent, #0f766e);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-primary: #60a5fa;
-    --color-primary-fg: #0b1220;
-    --color-accent: #2dd4bf;
+    --color-primary: var(--brand-primary-dark, #60a5fa);
+    --color-primary-fg: var(--brand-primary-dark-fg, #0b1220);
+    --color-accent: var(--brand-accent-dark, #2dd4bf);
     --color-surface: #18181b;
     --color-surface-muted: #27272a;
     --color-fg: #fafafa;

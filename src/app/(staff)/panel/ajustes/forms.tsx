@@ -69,7 +69,9 @@ export function BrandingForm({
         return warnings.length ? (
           <ul className="mt-2 list-disc pl-5 text-fg">
             {warnings.map((warning) => (
-              <li key={warning}>⚠️ {warning}</li>
+              <li key={warning}>
+                <strong>Aviso:</strong> {warning}
+              </li>
             ))}
           </ul>
         ) : null;

@@ -30,6 +30,25 @@ const INK = '#18181b';
 export const readableForeground = (background: string): string =>
   contrastRatio(background, WHITE) >= contrastRatio(background, INK) ? WHITE : INK;
 
+const DARK_SURFACE = '#18181b';
+
+/**
+ * The same brand colour for the dark theme: lightened towards white, in small steps, until it reads
+ * on the dark background (AA, 4.5:1). A colour that already does is returned untouched, so a
+ * gestoría with a light brand keeps it exactly.
+ */
+export function adaptForDarkTheme(hex: string): string {
+  const channels = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  for (let step = 0; step <= 20; step++) {
+    const mixed = `#${channels
+      .map((value) => Math.round(value + ((255 - value) * step) / 20))
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('')}`;
+    if (contrastRatio(mixed, DARK_SURFACE) >= 4.5) return mixed;
+  }
+  return WHITE;
+}
+
 export type ContrastWarning = { color: 'primary' | 'accent'; ratio: number; message: string };
 
 /**
