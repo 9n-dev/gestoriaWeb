@@ -11,6 +11,7 @@ const LIMITS = {
   signup: [10, 3600],
   upload: [300, 600],
   webhook: [600, 60],
+  clientError: [30, 600],
 } as const;
 
 /**

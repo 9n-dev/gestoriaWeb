@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { formValues, runAction, type ActionState } from '@/lib/action';
 import { AppError } from '@/lib/errors';
+import { readXlsx } from '@/lib/xlsx-read';
 import { inviteClientUser, resendInvitation } from '@/modules/auth/invitations';
 import { requireUser } from '@/modules/auth/session';
 import { removeClientUser } from '@/modules/auth/team';
@@ -153,12 +154,27 @@ export async function importClientsAction(
     const user = await requireUser();
     const file = formData.get('file');
     if (!(file instanceof File) || file.size === 0) {
-      throw new AppError('VALIDATION', 'Selecciona el archivo CSV con tus clientes.');
+      throw new AppError('VALIDATION', 'Selecciona el archivo Excel o CSV con tus clientes.');
     }
     if (file.size > MAX_IMPORT_BYTES)
       throw new AppError('VALIDATION', 'El archivo no puede superar 1 MB.');
 
-    const report = await importClients(user, await file.text());
+    // Excel files are ZIPs ("PK"); anything else is read as CSV. The name of the file is not trusted.
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let source: string | string[][];
+    if (bytes[0] === 0x50 && bytes[1] === 0x4b) {
+      try {
+        source = readXlsx(bytes);
+      } catch {
+        throw new AppError(
+          'VALIDATION',
+          'No hemos podido leer ese Excel. Guárdalo como .xlsx (no .xls) o como CSV y vuelve a probar.',
+        );
+      }
+    } else {
+      source = new TextDecoder().decode(bytes);
+    }
+    const report = await importClients(user, source);
     revalidatePath('/panel/clientes');
     return {
       success: `${report.imported} clientes importados${report.rejected.length ? `, ${report.rejected.length} filas con errores` : ''}.`,

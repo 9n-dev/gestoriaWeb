@@ -63,7 +63,7 @@ test('a new gestoría signs up, walks the wizard and ends with 20 invited client
     (_, i) =>
       `Cliente ${i + 1};${nif(40_000_000 + i)};c${i + 1}@${slug}.test;Autónomo · Estimación directa`,
   );
-  await page.getByLabel('Archivo CSV').setInputFiles({
+  await page.getByLabel('Archivo Excel (.xlsx) o CSV').setInputFiles({
     name: 'clientes.csv',
     mimeType: 'text/csv',
     buffer: Buffer.from(

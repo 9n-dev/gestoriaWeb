@@ -291,8 +291,8 @@ See ADR 0028–0030.
   responses.
 - **Help**: `/ayuda` renders `content/help/NN-slug.md` (public, under the tenant's logo). To add an
   article, drop a Markdown file there: `# Title`, `##`, paragraphs, lists, `**bold**` and links.
-- **Errors**: with `SENTRY_DSN`, uncaught request errors, failed actions/API routes/webhooks and jobs
-  that exhaust their retries are reported. `error.tsx`/`not-found.tsx` give Spanish fallbacks.
+- **Errors**: with `SENTRY_DSN`, uncaught request errors, failed actions/API routes/webhooks, jobs that
+  exhaust their retries and errors in the browser (through `/api/errors`) are reported. `error.tsx`/`not-found.tsx` give Spanish fallbacks.
 - **Demo**: with `DEMO_MODE=true` a banner shows on every page and the worker runs `demo-reset` at 04:00
   (deletes tenants `perez` and `otra`, rows and bucket, and seeds them again).
 

@@ -59,11 +59,15 @@ export function clientImportTemplate(): string {
  * Imports the valid rows and reports the rest, row by row (§6.1): one bad NIF must not block the
  * other nineteen clients. Row numbers match the spreadsheet (header is row 1).
  */
-export async function importClients(user: SessionUser, csv: string): Promise<ImportReport> {
+export async function importClients(
+  user: SessionUser,
+  /** CSV text, or rows already read from a spreadsheet. */
+  source: string | string[][],
+): Promise<ImportReport> {
   assertCan(user, 'client.import');
   const tenantId = requireTenantId(user);
 
-  const [header, ...lines] = parseCsv(csv);
+  const [header, ...lines] = typeof source === 'string' ? parseCsv(source) : source;
   if (!header || lines.length === 0) {
     throw new AppError('VALIDATION', 'El archivo está vacío. Descarga la plantilla y rellénala.');
   }

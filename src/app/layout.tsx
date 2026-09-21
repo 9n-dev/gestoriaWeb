@@ -5,6 +5,7 @@ import { readableForeground } from '@/modules/branding/contrast';
 import { parseBranding } from '@/modules/tenants/schema';
 import { env } from '@/env';
 import { RegisterServiceWorker } from '@/components/pwa/register';
+import { ReportBrowserErrors } from '@/components/report-browser-errors';
 import './globals.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -58,6 +59,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         )}
         {children}
         <RegisterServiceWorker />
+        <ReportBrowserErrors />
       </body>
     </html>
   );
