@@ -39,9 +39,13 @@ export function validateTaxId(raw: string): TaxIdResult {
       : { valid: false };
   }
 
-  // ponytail: K/L/M NIFs (minors, non-residents) are accepted by format only; their control
-  // algorithm is not applied (TD-019). Add it if a gestoría reports false positives.
-  if (/^[KLM]\d{7}[A-Z]$/.test(id)) return { valid: true, normalized: id, kind: 'NIF' };
+  // K (minors), L (non-residents) and M (foreigners without NIE): the control letter is computed
+  // over the seven digits, like a NIF whose first digit is the letter's place holder (0).
+  if (/^[KLM]\d{7}[A-Z]$/.test(id)) {
+    return nifLetter(id.slice(1, 8)) === id[8]
+      ? { valid: true, normalized: id, kind: 'NIF' }
+      : { valid: false };
+  }
 
   if (/^[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]$/.test(id)) {
     const control = cifControl(id.slice(1, 8));

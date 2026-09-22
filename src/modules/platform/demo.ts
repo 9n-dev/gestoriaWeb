@@ -7,16 +7,15 @@ export const DEMO_TENANT_SLUGS = ['perez', 'otra'];
 
 /**
  * §7: "los datos se reinician cada noche". Deletes the demo tenants for real (rows and bucket) and
- * runs the seed again, so whatever visitors uploaded or changed yesterday is gone.
+ * runs the seed again, so whatever visitors uploaded, changed or registered yesterday is gone.
  */
 export async function resetDemo(): Promise<{ reset: string[] }> {
   if (!env.DEMO_MODE)
     throw new Error('resetDemo called without DEMO_MODE: refusing to delete data');
 
-  const tenants = await prisma.tenant.findMany({
-    where: { slug: { in: DEMO_TENANT_SLUGS } },
-    select: { id: true, slug: true },
-  });
+  // Everything: the demo tenants, and whatever gestorías visitors registered during the day.
+  // A demo environment holds nobody's real data by definition (README: never run one with DEMO_MODE).
+  const tenants = await prisma.tenant.findMany({ select: { id: true, slug: true } });
   for (const tenant of tenants) await deleteTenantData(tenant.id);
 
   // Imported on demand: the seed lives outside `src` and is only needed by this job.

@@ -39,11 +39,11 @@ describe('nightly demo reset', () => {
     flags.demo = true;
   });
 
-  it('seeds from scratch, forgets what visitors did, and leaves other tenants alone', async () => {
-    const real = await createTenant({ slug: 'gestoria-real' });
-    await createClient(real.id);
+  it('seeds from scratch and forgets what visitors did, including the gestorías they registered', async () => {
+    const visitor = await createTenant({ slug: 'gestoria-de-un-visitante' });
+    await createClient(visitor.id);
 
-    expect(await resetDemo()).toEqual({ reset: [] });
+    expect(await resetDemo()).toEqual({ reset: ['gestoria-de-un-visitante'] });
     const perez = await prisma.tenant.findUniqueOrThrow({ where: { slug: 'perez' } });
     expect(await prisma.client.count({ where: { tenantId: perez.id } })).toBe(12);
     const objects = bucket.size;
@@ -59,6 +59,6 @@ describe('nightly demo reset', () => {
       await prisma.client.count({ where: { legalName: 'Cliente creado por un visitante' } }),
     ).toBe(0);
     expect(bucket.size).toBe(objects);
-    expect(await prisma.client.count({ where: { tenantId: real.id } })).toBe(1);
+    expect(await prisma.tenant.count({ where: { id: visitor.id } })).toBe(0);
   }, 180_000);
 });

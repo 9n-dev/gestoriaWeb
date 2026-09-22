@@ -10,7 +10,11 @@ const abortMultipartUpload = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock('@/lib/storage/multipart', () => ({ abortMultipartUpload }));
 vi.mock('@/lib/queue', () => ({
   QUEUES: { files: 'files', scheduled: 'scheduled' },
-  getQueue: () => ({ getFailed: async () => [], getJob: async () => null }),
+  getQueue: () => ({
+    getFailed: async () => [],
+    getFailedCount: async () => 0,
+    getJob: async () => null,
+  }),
 }));
 
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000);
@@ -109,7 +113,7 @@ describe('failed jobs panel', () => {
     await expect(retryFailedJob(admin, 'files', '1')).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
     const root = await sessionUserFor(null, 'SUPERADMIN');
-    expect(await listFailedJobs(root)).toEqual([]);
+    expect(await listFailedJobs(root)).toEqual({ jobs: [], total: 0, page: 1, pages: 1 });
     await expect(retryFailedJob(root, 'nope', '1')).rejects.toMatchObject({ code: 'NOT_FOUND' });
     await expect(retryFailedJob(root, 'files', 'missing')).rejects.toMatchObject({
       code: 'NOT_FOUND',

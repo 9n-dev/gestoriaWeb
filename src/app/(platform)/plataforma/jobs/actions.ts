@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { runAction, type ActionState } from '@/lib/action';
 import { requireUser } from '@/modules/auth/session';
-import { retryFailedJob } from '@/modules/platform/jobs';
+import { retryAllFailedJobs, retryFailedJob } from '@/modules/platform/jobs';
 
 export async function retryJobAction(
   queue: string,
@@ -14,5 +14,13 @@ export async function retryJobAction(
     await retryFailedJob(await requireUser(), queue, jobId);
     revalidatePath('/plataforma/jobs');
     return { success: 'Reencolado.' };
+  });
+}
+
+export async function retryAllJobsAction(_: ActionState): Promise<ActionState> {
+  return runAction(async () => {
+    const retried = await retryAllFailedJobs(await requireUser());
+    revalidatePath('/plataforma/jobs');
+    return { success: `${retried} ${retried === 1 ? 'job reencolado' : 'jobs reencolados'}.` };
   });
 }

@@ -31,3 +31,36 @@ export function recentQuarters(today: IsoDate, count = 6): PeriodOption[] {
   }
   return options;
 }
+
+const MONTHS = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+/** The last `count` months, newest first, for the clients that file VAT monthly. */
+export function recentMonths(today: IsoDate, count = 6): PeriodOption[] {
+  let year = Number(today.slice(0, 4));
+  let month = Number(today.slice(5, 7));
+  const options: PeriodOption[] = [];
+  for (let i = 0; i < count; i++) {
+    options.push({
+      value: periodValue({ year, type: 'MONTH', ordinal: month }),
+      label: `${MONTHS[month - 1]} de ${year}`,
+    });
+    if (--month === 0) {
+      month = 12;
+      year--;
+    }
+  }
+  return options;
+}
