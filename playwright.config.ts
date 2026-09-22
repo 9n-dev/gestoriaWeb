@@ -1,8 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
+import { e2eEnv } from './e2e/database';
 
 /**
  * Critical flows end to end (CLAUDE.md §8.5). Needs `docker compose up -d`; the config starts the
- * app, `e2e/global-setup.ts` seeds the demo data and starts the BullMQ worker.
+ * app on its own database (`e2e/database.ts`), `e2e/global-setup.ts` migrates and seeds it and starts
+ * the BullMQ worker.
  * Tenants are reached by subdomain: Chromium resolves *.localhost to the loopback address.
  */
 export default defineConfig({
@@ -23,9 +25,11 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: process.env.CI ? 'npm run start' : 'npm run dev',
+    command: process.env.CI ? 'npm run start' : 'npx tsx e2e/prepare-database.ts && npm run dev',
     url: 'http://localhost:3000/api/health',
-    reuseExistingServer: !process.env.CI,
+    env: e2eEnv,
+    // A dev server already running would be on the development database: never reuse it.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

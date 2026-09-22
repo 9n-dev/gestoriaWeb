@@ -84,6 +84,13 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npm run build
       - run: npm run test:e2e
+      # §9: performance >= 90 and accessibility >= 95 on the client's screens, on the same build.
+      - name: Lighthouse on the client screens
+        run: |
+          npm run db:seed
+          npm run start &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health && break; sleep 1; done
+          npm run lighthouse
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

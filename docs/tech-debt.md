@@ -13,7 +13,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
 | TD-027 | 5 | **Resend inbound adapter is untested against a live account.** Signature verification and routing are covered; the attachment download endpoint in `inbound/resend.ts` was written from the published API and must be verified with the first real domain. |
 | TD-031 | — | **Inbound attachments under 5 KB are skipped** as signature logos (`inbound/service.ts`). Replace with Content-Disposition/Content-ID once the provider exposes them. |
-| TD-035 | — | **E2E runs against the development database** locally (it re-seeds and leaves its uploads and test tenants behind). CI uses a fresh database. |
 | TD-042 | — | **Reply-by-email trusts the From address plus the thread token** (ADR 0022). Enforce DMARC on the inbound domain when it is connected. |
 | TD-044 | — | **Attachments are added after the message is sent** (15-minute window, author only). An attachment that fails leaves a message without it and a warning to the author. |
 | TD-047 | — | **The proxy in front of the app must overwrite `X-Forwarded-Host`** (tenant resolution reads it first). Vercel does; document it for any other deployment. |
@@ -30,7 +29,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-070 | — | **Pages are never cached by the service worker** (personal data on possibly shared devices), so `/subir` cannot be opened from a cold start without network: the offline queue covers a connection lost while using it, or files left from a previous visit. |
 | TD-071 | — | **The offline queue covers the client uploader only** (not staff uploads: receipts, deliveries, permanent documents). Safari may evict IndexedDB of a site unused for 7 days unless the PWA is installed. |
 | TD-072 | — | **Help centre is fixed content**: ten Spanish articles for clients, no search, not editable per tenant, none for staff. |
-| TD-073 | — | **Lighthouse is run by hand** against the local production build (scores in the README), not in CI, and not on a throttled real device. |
 | TD-079 | — | **One flaky test seen once**: `reminders/service.test.ts` "reminds at 15, 7, 2 and 0 days" failed in one full-suite run on 2026-09-21 and passed in isolation (6 times) and in the next two full runs; the assertion message was not captured. Suspect: ordering of `EmailLog` rows by a millisecond `createdAt`. If it shows up again, capture the message before anything else. |
 
 ## Closed
@@ -88,3 +86,5 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-074 | post-launch | The nightly demo reset deletes every tenant (the demo ones and whatever visitors registered) and seeds again. |
 | TD-038 | post-launch | Dashboard numbers cached in Redis for 60 seconds per user (`lib/cache.ts`, fail-open). |
 | TD-037 | post-launch | The traffic-light overview offers months as well as quarters; the dashboard counts clients of both cadences in their own collecting period. |
+| TD-073 | post-launch | Lighthouse runs in CI (`npm run lighthouse`, mobile, on the production build with demo data) and fails under the spec's floor (performance 90, accessibility 95); noisy pages get up to three runs. |
+| TD-035 | post-launch | The local E2E suite runs on its own database (`gestoria_e2e`, created and migrated by `e2e/prepare-database.ts`); the development database is never touched. |

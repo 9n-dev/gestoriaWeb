@@ -52,7 +52,7 @@ in this repository is synthetic.
 | Data model                          | 36 Prisma models, 8 migrations, each with a hand-written `down.sql`                                                                                                                                                        |
 | Decisions                           | 35 architecture decision records in [`docs/adr/`](docs/adr)                                                                                                                                                                |
 | Runtime dependencies                | 17. PDF writer, PNG decoder, ZIP and XLSX reader and writer, TOTP, QR drawing, Markdown renderer and Sentry-compatible error reporting are written in-house on top of `node:crypto` and `node:zlib` (see the ADRs for why) |
-| Lighthouse (mobile, client screens) | performance 97 to 100, accessibility 100, on the local production build (2026-09-21)                                                                                                                                       |
+| Lighthouse (mobile, client screens) | performance 96 to 100, accessibility 100; enforced in CI with a floor of 90 / 95                                                                                                                                           |
 | Known shortcuts                     | listed one by one, open and closed, in [`docs/tech-debt.md`](docs/tech-debt.md)                                                                                                                                            |
 
 ## Stack
@@ -206,6 +206,7 @@ ClamAV is heavy and not needed until phase 3: `docker compose --profile antiviru
 | `npm run job:daily -- [YYYY-MM-DD]` | Runs the morning job (reminders, notices, upkeep) for every tenant, now                                                                                                                  |
 | `npm run job:demo-reset`            | Deletes and re-seeds the demo tenants now (needs `DEMO_MODE=true`)                                                                                                                       |
 | `npm run screenshots`               | Retakes `docs/screenshots` from the running app (production build, demo data)                                                                                                            |
+| `npm run lighthouse`                | Lighthouse (mobile) on the client screens against a running production build; fails under the floor                                                                                      |
 | `npm run test:e2e`                  | Playwright: onboarding, upload → book/reject by keyboard, 10 photos over 3G. Starts the app and a worker itself; needs `docker compose up -d` and `npx playwright install chromium` once |
 | `npm run db:migrate`                | `prisma migrate dev`                                                                                                                                                                     |
 | `npm run db:seed`                   | Idempotent demo seed                                                                                                                                                                     |

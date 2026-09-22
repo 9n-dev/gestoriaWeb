@@ -1,7 +1,8 @@
 import { expect, type Page } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
+import { E2E_DATABASE_URL } from './database';
 
-export const prisma = new PrismaClient();
+export const prisma = new PrismaClient({ datasourceUrl: E2E_DATABASE_URL });
 
 export async function login(page: Page, email: string, password = 'demo1234') {
   await page.goto('/acceso');

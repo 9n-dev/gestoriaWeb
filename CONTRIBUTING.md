@@ -30,7 +30,7 @@ How work is done in this repository. The rules come from the specification ([`CL
 1. Branch from `main`: `feat/...`, `fix/...`, `docs/...`, `chore/...`.
 2. Small commits, [Conventional Commits](https://www.conventionalcommits.org/): `feat(documents): ...`.
 3. Write the test with the change. Services are tested against a real PostgreSQL (`gestoria_test`); flows that
-   matter to a person get a Playwright test.
+   matter to a person get a Playwright test (it runs on `gestoria_e2e`, created on first run).
 4. Before merging, all of this passes, chained with `&&` so a failure stops the merge:
 
    ```bash
