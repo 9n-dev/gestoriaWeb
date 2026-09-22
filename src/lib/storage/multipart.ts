@@ -113,3 +113,44 @@ export const signedDownloadUrl = (
     }),
     { expiresIn: SIGNED_URL_SECONDS },
   );
+
+/**
+ * Server-side multipart upload fed chunk by chunk: buffers to 5 MiB parts and sends each one as it
+ * fills, so an object of any size is written with a bounded amount of memory. `close()` sends the
+ * tail and completes the upload; returns the total size.
+ */
+export function multipartSink(Key: string, ContentType: string) {
+  let uploadId: string | null = null;
+  const parts: UploadedPart[] = [];
+  const pending: Buffer[] = [];
+  let buffered = 0;
+  let total = 0;
+
+  const flush = async () => {
+    uploadId ??= await createMultipartUpload(Key, ContentType);
+    const Body = Buffer.concat(pending.splice(0));
+    buffered = 0;
+    const PartNumber = parts.length + 1;
+    const { ETag } = await getStorage().send(
+      new UploadPartCommand({ Bucket, Key, UploadId: uploadId, PartNumber, Body }),
+    );
+    parts.push({ partNumber: PartNumber, etag: ETag!, size: Body.length });
+  };
+
+  return {
+    write: async (chunk: Uint8Array) => {
+      pending.push(Buffer.from(chunk));
+      buffered += chunk.byteLength;
+      total += chunk.byteLength;
+      if (buffered >= PART_SIZE) await flush();
+    },
+    close: async (): Promise<number> => {
+      if (buffered > 0 || parts.length === 0) await flush();
+      await completeMultipartUpload(Key, uploadId!, parts);
+      return total;
+    },
+    abort: async () => {
+      if (uploadId) await abortMultipartUpload(Key, uploadId).catch(() => {});
+    },
+  };
+}

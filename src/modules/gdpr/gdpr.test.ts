@@ -33,6 +33,19 @@ vi.mock('@/lib/storage/multipart', () => ({
     for (const key of [...bucket.keys()]) if (key.startsWith(prefix)) bucket.delete(key);
   }),
   signedDownloadUrl: vi.fn(async (key: string) => `https://bucket.test/${key}?signed`),
+  // The streamed export: chunks land in the fake bucket when the sink is closed.
+  multipartSink: vi.fn((key: string) => {
+    const chunks: Uint8Array[] = [];
+    return {
+      write: async (chunk: Uint8Array) => void chunks.push(chunk),
+      close: async () => {
+        const bytes = new Uint8Array(Buffer.concat(chunks));
+        bucket.set(key, bytes);
+        return bytes.byteLength;
+      },
+      abort: async () => undefined,
+    };
+  }),
 }));
 vi.mock('@/lib/queue', () => ({ enqueue: vi.fn(), QUEUES: { scheduled: 'scheduled' } }));
 

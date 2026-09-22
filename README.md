@@ -426,7 +426,7 @@ previous reading is discarded, and a document is never read more than three time
   data processing agreement before entering (pages, server actions and API routes alike); acceptances keep IP, user agent and the hash of the text.
   The wording in `src/modules/legal/dpa.ts` is a template: **have it reviewed by your lawyer** and bump
   `DPA_VERSION` when you change it (everybody is asked again).
-- **Ajustes → Datos y privacidad**: export everything (ZIP of CSVs + files, built by the worker, link by
+- **Ajustes → Datos y privacidad**: export everything (ZIP of CSVs + files, streamed by the worker into the bucket, link by
   email, 7 days), export or erase one client (30 days of grace, reversible; invoices are kept by law),
   document retention (default 6 years; the admins get a monthly notice and nothing is deleted that a
   notice at least 15 days old did not announce) and cancelling the gestoría (portal closes, export by email,
@@ -441,8 +441,8 @@ See ADR 0028–0030.
   `/api/branding/icon/<size>` draws its icon (initial on the brand colour). The manifest has a
   "Subir documentos" shortcut; from the home screen an invoice is three touches: open → Subir documentos →
   Hacer una foto.
-- **Intermittent connection**: every chosen file is stored in IndexedDB before it is sent and removed when
-  it arrives. Offline, files wait as "Pendiente de conexión"; they go out on the `online` event or the next
+- **Intermittent connection**: every chosen file, from clients and staff alike, is stored in IndexedDB before
+  it is sent and removed when it arrives. Offline, files wait as "Pendiente de conexión"; they go out on the `online` event or the next
   time `/subir` opens, resuming multipart uploads where they stopped. The service worker (`public/sw.js`)
   caches hashed build assets and answers failed navigations with `/offline`. It never caches pages or API
   responses.

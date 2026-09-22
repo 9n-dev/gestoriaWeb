@@ -75,7 +75,9 @@ async function withRetry<T>(step: () => Promise<T>, signal?: AbortSignal): Promi
       if (
         signal?.aborted ||
         (error instanceof UploadError && error.permanent) ||
-        attempt === ATTEMPTS
+        attempt === ATTEMPTS ||
+        // Offline for sure: retrying now is pointless, the queue will send it when the network is back.
+        !navigator.onLine
       )
         throw error;
       await sleep(Math.min(1000 * 2 ** (attempt - 1), 15_000));

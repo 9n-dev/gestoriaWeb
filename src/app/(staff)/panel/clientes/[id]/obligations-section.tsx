@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { uploadFile, UploadError } from '@/components/uploader/upload-client';
+import { queuedUpload } from '@/components/uploader/queued-upload';
+import { UploadError } from '@/components/uploader/upload-client';
 import { Field } from '@/components/ui/field';
 import { ActionForm, SelectField, SubmitButton } from '@/components/ui/form';
 import type { PeriodOption } from '@/lib/periods';
@@ -119,7 +120,7 @@ function ObligationRow({
       const receipt = data.get('receipt');
       try {
         if (receipt instanceof File && receipt.size > 0) {
-          await uploadFile(
+          await queuedUpload(
             receipt,
             { purpose: 'OBLIGATION_RECEIPT', clientId, obligationId: o.id },
             { onProgress: () => {}, onFileId: () => {} },

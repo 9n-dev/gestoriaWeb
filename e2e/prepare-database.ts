@@ -21,10 +21,9 @@ async function ensureDatabase() {
 }
 
 (async () => {
-  if (!process.env.CI) {
-    await ensureDatabase();
-    execSync('npx prisma migrate deploy', { stdio: 'inherit', env: e2eEnv });
-  }
+  // In CI the workflow created and migrated the database; locally it is ours to prepare.
+  if (process.env.E2E_DATABASE_URL || !process.env.CI) await ensureDatabase();
+  execSync('npx prisma migrate deploy', { stdio: 'inherit', env: e2eEnv });
 })().catch((error) => {
   console.error(error);
   process.exit(1);

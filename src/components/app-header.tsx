@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { logoutAction } from '@/app/(auth)/acceso/actions';
 import { AutoRefresh } from '@/components/auto-refresh';
+import { PendingUploads } from '@/components/uploader/pending-uploads';
 import { TenantLogo } from '@/components/tenant-logo';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n';
@@ -25,6 +26,7 @@ export function AppHeader({
   return (
     <header className="border-b border-border">
       <AutoRefresh />
+      <PendingUploads />
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
         <Link href="/" aria-label={t('common.home', locale)}>
           <TenantLogo tenant={tenant} />

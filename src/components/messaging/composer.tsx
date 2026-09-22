@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useRef, useState, useTransition } from 'react';
 import { renderTemplateAction, sendMessageAction } from '@/app/actions/messaging';
-import { uploadFile, UploadError } from '@/components/uploader/upload-client';
+import { queuedUpload } from '@/components/uploader/queued-upload';
+import { UploadError } from '@/components/uploader/upload-client';
 import { Button } from '@/components/ui/button';
 
 type Option = { id: string; name: string };
@@ -45,7 +46,7 @@ export function Composer({
       try {
         for (const file of data.getAll('files')) {
           if (file instanceof File && file.size > 0) {
-            await uploadFile(
+            await queuedUpload(
               file,
               { purpose: 'MESSAGE_ATTACHMENT', clientId, messageId: result.data },
               { onProgress: () => {}, onFileId: () => {} },

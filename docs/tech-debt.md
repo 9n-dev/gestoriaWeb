@@ -23,13 +23,12 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-057 | — | **Stripe and GoCardless adapters are untested against live accounts**; signatures and idempotency are covered with the documented schemes. There is no SEPA mandate set-up flow: `Client.gocardlessMandateId` must be filled by hand. |
 | TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
 | TD-062 | — | **2FA enforcement is off when `DEMO_MODE=true`** so the published demo users work. The feature itself stays on. Never run a real tenant with demo mode. |
-| TD-063 | — | **Data exports are built in memory** (`buildExport`). Fine for a small gestoría; a tenant with many GB needs a streamed ZIP into a multipart upload. |
 | TD-066 | — | **Support mode is one read-only overview page** (figures and client list). Browsing the tenant's panel as superadmin would need a cross-host session; not built. |
 | TD-067 | — | **CSP keeps `style-src 'unsafe-inline'`**: tenant colours are CSS variables in a style attribute and Next inlines critical CSS. Scripts are nonce-only. |
 | TD-070 | — | **Pages are never cached by the service worker** (personal data on possibly shared devices), so `/subir` cannot be opened from a cold start without network: the offline queue covers a connection lost while using it, or files left from a previous visit. |
-| TD-071 | — | **The offline queue covers the client uploader only** (not staff uploads: receipts, deliveries, permanent documents). Safari may evict IndexedDB of a site unused for 7 days unless the PWA is installed. |
 | TD-072 | — | **Help centre is fixed content**: ten Spanish articles for clients, no search, not editable per tenant, none for staff. |
 | TD-079 | — | **One flaky test seen once**: `reminders/service.test.ts` "reminds at 15, 7, 2 and 0 days" failed in one full-suite run on 2026-09-21 and passed in isolation (6 times) and in the next two full runs; the assertion message was not captured. Suspect: ordering of `EmailLog` rows by a millisecond `createdAt`. If it shows up again, capture the message before anything else. |
+| TD-080 | — | **An upload interrupted right after its first request can leave a PENDING `StoredFile` behind** (the browser recorded no file id yet, so the retry starts a new one). Harmless, never served, swept by the daily cleanup after 24 h. |
 
 ## Closed
 
@@ -88,3 +87,5 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-037 | post-launch | The traffic-light overview offers months as well as quarters; the dashboard counts clients of both cadences in their own collecting period. |
 | TD-073 | post-launch | Lighthouse runs in CI (`npm run lighthouse`, mobile, on the production build with demo data) and fails under the spec's floor (performance 90, accessibility 95); noisy pages get up to three runs. |
 | TD-035 | post-launch | The local E2E suite runs on its own database (`gestoria_e2e`, created and migrated by `e2e/prepare-database.ts`); the development database is never touched. |
+| TD-063 | post-launch | Data exports are streamed: `ZipStream` writes the archive entry by entry into a server-side multipart upload (`multipartSink`, 5 MiB parts), so one file at a time is in memory whatever the tenant's size. |
+| TD-071 | post-launch | Staff uploads (receipts, deliveries, permanent documents, message attachments) go through the IndexedDB queue too; leftovers are sent from any page by `PendingUploads` in the header, resuming an upload the server already knows. The upload client stops retrying while the browser is offline. |

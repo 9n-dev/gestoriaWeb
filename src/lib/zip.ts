@@ -1,5 +1,8 @@
 import { crc32, deflateRawSync } from 'node:zlib';
 
+/** Where the bytes of a streamed archive go, one chunk at a time. */
+export type ByteSink = (chunk: Uint8Array) => Promise<void>;
+
 export type ZipEntry = { path: string; data: Uint8Array | string };
 
 // MS-DOS date/time of 1980-01-01: archives are reproducible, and nobody reads these dates.
@@ -51,4 +54,56 @@ export function zip(entries: ZipEntry[]): Uint8Array {
   end.writeUInt32LE(directorySize, 12);
   end.writeUInt32LE(offset, 16);
   return new Uint8Array(Buffer.concat([...local, ...central, end]));
+}
+
+/**
+ * The same archive, entry by entry, written to a sink as it grows: only one entry (and the small
+ * central directory) is ever in memory. For archives bigger than RAM, like a tenant's export.
+ */
+export class ZipStream {
+  private readonly central: Buffer[] = [];
+  private offset = 0;
+  private count = 0;
+
+  constructor(private readonly sink: ByteSink) {}
+
+  async add(path: string, data: Uint8Array | string): Promise<void> {
+    const name = Buffer.from(path, 'utf8');
+    const raw = Buffer.from(data);
+    const compressed = deflateRawSync(raw);
+    const header = Buffer.alloc(30);
+    header.writeUInt32LE(0x04034b50, 0);
+    header.writeUInt16LE(20, 4);
+    header.writeUInt16LE(UTF8_NAMES, 6);
+    header.writeUInt16LE(8, 8);
+    header.writeUInt16LE(DOS_TIME, 10);
+    header.writeUInt16LE(DOS_DATE, 12);
+    header.writeUInt32LE(crc32(raw), 14);
+    header.writeUInt32LE(compressed.length, 18);
+    header.writeUInt32LE(raw.length, 22);
+    header.writeUInt16LE(name.length, 26);
+
+    const directory = Buffer.alloc(46);
+    directory.writeUInt32LE(0x02014b50, 0);
+    directory.writeUInt16LE(20, 4);
+    header.copy(directory, 6, 4, 30);
+    directory.writeUInt32LE(this.offset, 42);
+    this.central.push(directory, name);
+
+    await this.sink(Buffer.concat([header, name, compressed]));
+    this.offset += header.length + name.length + compressed.length;
+    this.count++;
+  }
+
+  /** Writes the central directory. Nothing can be added afterwards. */
+  async finish(): Promise<void> {
+    const directorySize = this.central.reduce((size, part) => size + part.length, 0);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(this.count, 8);
+    end.writeUInt16LE(this.count, 10);
+    end.writeUInt32LE(directorySize, 12);
+    end.writeUInt32LE(this.offset, 16);
+    await this.sink(Buffer.concat([...this.central, end]));
+  }
 }

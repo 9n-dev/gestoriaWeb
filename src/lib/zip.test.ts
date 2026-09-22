@@ -48,3 +48,19 @@ describe('xlsx', () => {
     expect(Object.keys(files)).toContain('[Content_Types].xml');
   });
 });
+
+describe('ZipStream', () => {
+  it('produces byte for byte the archive `zip` builds, one entry at a time', async () => {
+    const { ZipStream, zip } = await import('./zip');
+    const entries = [
+      { path: 'datos/clientes.csv', data: 'id;nombre\n1;Ñandú' },
+      { path: 'archivos/a.bin', data: new Uint8Array(70_000).map((_, i) => i % 251) },
+    ];
+    const chunks: Uint8Array[] = [];
+    const stream = new ZipStream(async (chunk) => void chunks.push(chunk));
+    for (const entry of entries) await stream.add(entry.path, entry.data);
+    await stream.finish();
+    expect(Buffer.concat(chunks).equals(Buffer.from(zip(entries)))).toBe(true);
+    expect(chunks).toHaveLength(entries.length + 1); // one chunk per entry, one for the directory
+  });
+});

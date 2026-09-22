@@ -5,9 +5,9 @@ import { prisma, tenantDb } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
 import { AppError } from '@/lib/errors';
 import { enqueue, QUEUES } from '@/lib/queue';
-import { signedDownloadUrl } from '@/lib/storage/multipart';
-import { getObjectBytes, putObject } from '@/lib/storage/objects';
-import { zip, type ZipEntry } from '@/lib/zip';
+import { multipartSink, signedDownloadUrl } from '@/lib/storage/multipart';
+import { getObjectBytes } from '@/lib/storage/objects';
+import { ZipStream, type ByteSink } from '@/lib/zip';
 import { recordAudit } from '@/modules/audit/service';
 import { assertCan, requireTenantId, type SessionUser } from '@/modules/auth/permissions';
 import { platformBaseUrl } from '@/modules/tenants/resolve';
@@ -59,12 +59,16 @@ function cell(value: unknown): string {
 }
 
 /**
- * Everything the tenant holds (or holds about one client) as one CSV per table plus the files.
- * Generic over the Prisma model list on purpose: a table added tomorrow is exported tomorrow.
- * ponytail: the ZIP is built in memory; stream it to a multipart upload when a tenant outgrows RAM.
+ * Everything the tenant holds (or holds about one client) as one CSV per table plus the files,
+ * written to `sink` entry by entry: however many gigabytes a gestoría has, one file at a time is
+ * in memory. Generic over the Prisma model list on purpose: a table added tomorrow is exported tomorrow.
  */
-export async function buildExport(tenantId: string, clientId: string | null): Promise<Uint8Array> {
-  const entries: ZipEntry[] = [];
+export async function writeExport(
+  tenantId: string,
+  clientId: string | null,
+  sink: ByteSink,
+): Promise<void> {
+  const archive = new ZipStream(sink);
   const fileIds = new Set<string>();
 
   for (const model of Prisma.dmmf.datamodel.models) {
@@ -84,31 +88,46 @@ export async function buildExport(tenantId: string, clientId: string | null): Pr
     for (const row of rows) {
       for (const column of fileColumns) if (row[column]) fileIds.add(String(row[column]));
     }
-    entries.push({
-      path: `datos/${model.dbName ?? model.name}.csv`,
-      data: toCsv([columns, ...rows.map((row) => columns.map((column) => cell(row[column])))]),
-    });
+    await archive.add(
+      `datos/${model.dbName ?? model.name}.csv`,
+      toCsv([columns, ...rows.map((row) => columns.map((column) => cell(row[column])))]),
+    );
   }
 
   // Files travel with their rows. Infected or unprocessed ones never leave the bucket.
   const files = await tenantDb(tenantId).storedFile.findMany({
     where: { status: 'CLEAN', ...(clientId ? { id: { in: [...fileIds] } } : {}) },
+    select: {
+      id: true,
+      originalName: true,
+      mimeType: true,
+      sizeBytes: true,
+      sha256: true,
+      createdAt: true,
+      storageKey: true,
+    },
   });
   if (clientId) {
     const columns = ['id', 'originalName', 'mimeType', 'sizeBytes', 'sha256', 'createdAt'];
-    entries.push({
-      path: 'datos/stored_files.csv',
-      data: toCsv([columns, ...files.map((file) => columns.map((c) => cell((file as Row)[c])))]),
-    });
+    await archive.add(
+      'datos/stored_files.csv',
+      toCsv([columns, ...files.map((file) => columns.map((c) => cell((file as Row)[c])))]),
+    );
   }
   for (const file of files) {
-    entries.push({
-      path: `archivos/${file.id}-${file.originalName.replace(/[\\/]/g, '_')}`,
-      data: await getObjectBytes(file.storageKey),
-    });
+    await archive.add(
+      `archivos/${file.id}-${file.originalName.replace(/[\\/]/g, '_')}`,
+      await getObjectBytes(file.storageKey),
+    );
   }
+  await archive.finish();
+}
 
-  return zip(entries);
+/** The whole archive in memory: for tests and small exports. */
+export async function buildExport(tenantId: string, clientId: string | null): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  await writeExport(tenantId, clientId, async (chunk) => void chunks.push(chunk));
+  return new Uint8Array(Buffer.concat(chunks));
 }
 
 /** Asks for an export of one client (right of access, §4) or of the whole tenant. Runs in the worker. */
@@ -156,9 +175,16 @@ export async function runExport(exportId: string): Promise<void> {
   await prisma.dataExport.update({ where: { id: exportId }, data: { status: 'PROCESSING' } });
 
   try {
-    const bytes = await buildExport(job.tenantId, job.clientId);
     const storageKey = `${job.tenantId}/exports/${job.id}.zip`;
-    await putObject(storageKey, bytes, 'application/zip');
+    const sink = multipartSink(storageKey, 'application/zip');
+    let sizeBytes: number;
+    try {
+      await writeExport(job.tenantId, job.clientId, sink.write);
+      sizeBytes = await sink.close();
+    } catch (error) {
+      await sink.abort();
+      throw error;
+    }
 
     const token = randomBytes(32).toString('base64url');
     // A cancelled tenant keeps its export until the day everything is purged.
@@ -168,7 +194,7 @@ export async function runExport(exportId: string): Promise<void> {
       data: {
         status: 'READY',
         storageKey,
-        sizeBytes: bytes.byteLength,
+        sizeBytes,
         downloadTokenHash: sha256(token),
         completedAt: new Date(),
         expiresAt,
