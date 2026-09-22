@@ -4,7 +4,8 @@ import { sendEmail } from '@/lib/email';
 import { requestMagicLink } from '@/modules/auth/service';
 import type { SessionUser } from '@/modules/auth/permissions';
 import { resetDb } from '@tests/setup/db';
-import { createTenant, createUser } from '@tests/setup/factories';
+import { createClient, createTenant, createUser } from '@tests/setup/factories';
+import { notifyUsers } from '@/modules/messaging/notifications';
 import { sessionUserFor } from '@tests/setup/session';
 import {
   listEmailTemplates,
@@ -93,6 +94,54 @@ describe('email templates and branding of emails', () => {
     expect(preview.text).toContain('- Facturas emitidas');
     expect(preview.html).toContain('&lt;b&gt;Marta Soler Vidal&lt;/b&gt;');
     expect(preview.html).not.toContain('<b>');
+  });
+
+  it('notification emails take the wording of their kind, then the common one, then the default', async () => {
+    const client = await createClient(tenantId);
+    const person = await createUser(tenantId, 'CLIENT_USER', {
+      email: 'ana@example.com',
+      name: 'Ana',
+    });
+    const sent = async () =>
+      (
+        await prisma.emailLog.findMany({
+          where: { toAddress: 'ana@example.com' },
+          orderBy: { createdAt: 'asc' },
+        })
+      ).at(-1)!;
+    const notify = (type: 'DOCUMENT_RECEIVED' | 'INVOICE_ISSUED') =>
+      notifyUsers(tenantId, [person.id], {
+        type,
+        title: 'Hemos recibido tu documento',
+        body: 'factura.pdf',
+        link: '/documentos',
+      });
+
+    await notify('DOCUMENT_RECEIVED');
+    expect((await sent()).bodyText).toContain(
+      'Hola, Ana:\n\nHemos recibido tu documento\n\nfactura.pdf',
+    );
+    expect((await sent()).bodyText).toContain('/documentos');
+
+    await saveEmailTemplate(admin, {
+      key: 'notification.generic',
+      subject: 'Aviso de {{gestoria}}: {{titulo}}',
+      body: 'Buenas {{nombre}}. {{detalle}} Míralo en {{enlace}}',
+    });
+    await notify('INVOICE_ISSUED');
+    expect((await sent()).subject).toMatch(/^Aviso de .*: Hemos recibido tu documento/);
+    expect((await sent()).bodyText).toMatch(/^Buenas Ana\. factura\.pdf Míralo en http/);
+
+    await saveEmailTemplate(admin, {
+      key: 'notification.document_received',
+      subject: '{{titulo}}',
+      body: 'Ya lo tenemos, {{nombre}}. {{detalle}} {{enlace}}',
+    });
+    await notify('DOCUMENT_RECEIVED');
+    expect((await sent()).bodyText).toMatch(/^Ya lo tenemos, Ana\./);
+    await notify('INVOICE_ISSUED');
+    expect((await sent()).bodyText).toMatch(/^Buenas Ana\./); // the common one still applies to the rest
+    void client;
   });
 
   it('rejects variables the email cannot fill, and is for admins only', async () => {
