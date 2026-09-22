@@ -50,3 +50,59 @@ test('the portal is installable: manifest, icons and service worker', async ({ p
     )
     .toBe(true);
 });
+
+// TD-071: staff uploads survive a lost connection too, and go out from any page.
+test('a receipt chosen offline by a manager is sent from wherever they open the portal next', async ({
+  page,
+  context,
+}) => {
+  const client = await prisma.client.findFirstOrThrow({
+    where: { legalName: 'Marta Soler Vidal' },
+  });
+  const period = await prisma.period.upsert({
+    where: { year_type_ordinal: { year: 2026, type: 'YEAR', ordinal: 1 } },
+    create: { year: 2026, type: 'YEAR', ordinal: 1 },
+    update: {},
+  });
+  await prisma.obligation.upsert({
+    where: { clientId_model_periodId: { clientId: client.id, model: '347', periodId: period.id } },
+    create: {
+      tenantId: client.tenantId,
+      clientId: client.id,
+      model: '347',
+      periodId: period.id,
+      dueDate: new Date('2027-02-28'),
+    },
+    update: {
+      status: 'PENDING_DOCS',
+      result: null,
+      resultAmount: null,
+      filedAt: null,
+      receiptFileId: null,
+    },
+  });
+  // Attached, scanned receipts: an upload interrupted mid-way may leave a PENDING row that the
+  // daily cleanup sweeps, and that is not what the manager sees.
+  const attached = () =>
+    prisma.storedFile.count({
+      where: { kind: 'OBLIGATION_RECEIPT', obligationReceipt: { isNot: null } },
+    });
+  const before = await attached();
+
+  await login(page, 'gestor@demo.es');
+  await page.goto(`/panel/clientes/${client.id}`);
+  const row = page.getByRole('listitem').filter({ hasText: /^347/ });
+  await row.getByText('Marcar como presentada…').click();
+  await row
+    .getByLabel('Justificante (PDF)')
+    .setInputFiles(await makePhoto(page, 'justificante.jpg', 1000, 800));
+
+  await context.setOffline(true);
+  await row.getByRole('button', { name: 'Presentada: avisar al cliente' }).click();
+  await expect(row.getByText(/No se ha podido subir el justificante/)).toBeVisible();
+
+  await context.setOffline(false);
+  await page.goto('/panel');
+  await expect(page.getByRole('status')).toContainText(/pendiente enviado/, { timeout: 60_000 });
+  await expect.poll(attached, { timeout: 30_000 }).toBe(before + 1);
+});

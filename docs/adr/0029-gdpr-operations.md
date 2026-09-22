@@ -16,7 +16,7 @@ Date: 2026-09-19 · Status: accepted
 
 ## Consequences
 
-- The export is built in memory (TD-063).
+- The export was built in memory at first (TD-063); it is now streamed through `ZipStream` into a multipart upload, one file in memory at a time.
 - Audit entries about an erased client remain (ids only): they are the evidence that the erasure happened.
 - Reactivating a cancelled tenant is a manual operation (TD-068).
 - Later addition: retention is announced before it acts. A monthly `RETENTION_NOTICE` tells the admins what will expire in the next 45 days, and `purgeOldDocuments` only deletes documents covered by a notice that is at least 15 days old; shortening the retention period deletes the notices, so the wait starts again. A cancellation can be undone by the superadmin while `purgeAfter` is in the future.

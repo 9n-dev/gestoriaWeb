@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { uploadFile, UploadError } from '@/components/uploader/upload-client';
+import { queuedUpload } from '@/components/uploader/queued-upload';
+import { UploadError } from '@/components/uploader/upload-client';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { SelectField } from '@/components/ui/form';
@@ -25,7 +26,7 @@ export function DeliveryUpload({
     if (!(file instanceof File) || file.size === 0) return setState({ error: 'Elige un archivo.' });
     setState({ progress: 0 });
     try {
-      await uploadFile(
+      await queuedUpload(
         file,
         {
           purpose: 'DELIVERY',
