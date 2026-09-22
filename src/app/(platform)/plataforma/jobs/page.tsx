@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/app-header';
 import { requireArea } from '@/modules/auth/area';
 import { listFailedJobs } from '@/modules/platform/jobs';
-import { RetryButton } from './retry-button';
+import { RetryAllButton, RetryButton } from './retry-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,9 +12,16 @@ const dateTime = new Intl.DateTimeFormat('es-ES', {
   timeZone: 'Europe/Madrid',
 });
 
-export default async function FailedJobsPage() {
+export default async function FailedJobsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pagina?: string }>;
+}) {
   const user = await requireArea('area.platform');
-  const jobs = await listFailedJobs(user);
+  const { jobs, total, page, pages } = await listFailedJobs(
+    user,
+    Number((await searchParams).pagina),
+  );
   return (
     <>
       <AppHeader
@@ -34,6 +41,7 @@ export default async function FailedJobsPage() {
             Volver a gestorías
           </Link>
         </p>
+        {total > 1 && <RetryAllButton total={total} />}
         {jobs.length === 0 ? (
           <p>No hay jobs fallidos.</p>
         ) : (
@@ -78,6 +86,23 @@ export default async function FailedJobsPage() {
               ))}
             </tbody>
           </table>
+        )}
+        {pages > 1 && (
+          <nav aria-label="Páginas de jobs" className="flex items-center gap-4 text-sm">
+            {page > 1 && (
+              <Link href={`/plataforma/jobs?pagina=${page - 1}`} className="underline" rel="prev">
+                Anterior
+              </Link>
+            )}
+            <span className="text-fg-muted">
+              Página {page} de {pages} · {total} jobs
+            </span>
+            {page < pages && (
+              <Link href={`/plataforma/jobs?pagina=${page + 1}`} className="underline" rel="next">
+                Siguiente
+              </Link>
+            )}
+          </nav>
         )}
       </main>
     </>

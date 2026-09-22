@@ -52,3 +52,17 @@ describe('validateTaxId', () => {
     }
   });
 });
+
+describe('K/L/M NIFs', () => {
+  it('checks the control letter over the seven digits', () => {
+    // 1234567 % 23 = 11 -> 'L' (the same digits as the NIE X1234567L above)
+    expect(validateTaxId('K1234567L')).toEqual({
+      valid: true,
+      normalized: 'K1234567L',
+      kind: 'NIF',
+    });
+    expect(validateTaxId('L1234567L')).toMatchObject({ valid: true });
+    expect(validateTaxId('M1234567L')).toMatchObject({ valid: true });
+    expect(validateTaxId('K1234567A')).toEqual({ valid: false });
+  });
+});

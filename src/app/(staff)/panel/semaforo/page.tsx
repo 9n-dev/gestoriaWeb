@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { LightBadge } from '@/components/light-badge';
 import { formatLongDate, todayInMadrid } from '@/lib/dates';
 import { relativeDays } from '@/lib/labels-obligations';
-import { periodValue, recentQuarters } from '@/lib/periods';
+import { periodValue, recentMonths, recentQuarters } from '@/lib/periods';
 import { requireArea } from '@/modules/auth/area';
 import { can } from '@/modules/auth/permissions';
 import { tenantOverview } from '@/modules/checklists/service';
@@ -49,11 +49,20 @@ export default async function TrafficLightPage({
         <label className="flex flex-col gap-1 font-medium">
           Periodo
           <select name="periodo" defaultValue={periodValue(period)} className={select}>
-            {recentQuarters(today, 6).map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
+            <optgroup label="Trimestres">
+              {recentQuarters(today, 6).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Meses (clientes con IVA mensual)">
+              {recentMonths(today, 6).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </label>
         {managers.length > 0 && (

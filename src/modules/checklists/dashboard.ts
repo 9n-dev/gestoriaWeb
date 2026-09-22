@@ -1,3 +1,4 @@
+import { cached } from '@/lib/cache';
 import { tenantDb } from '@/lib/db';
 import { addDays, toDateOnly, todayInMadrid, type IsoDate } from '@/lib/dates';
 import {
@@ -30,6 +31,14 @@ export async function getDashboard(
   today: IsoDate = todayInMadrid(),
 ): Promise<Dashboard> {
   assertCan(user, 'dashboard.viewOwn');
+  // The numbers change slowly and every visit to /panel asked for all of them: a minute of cache
+  // per user (the scope is theirs) keeps the page instant for a busy gestoría.
+  return cached(`dashboard:${user.tenantId}:${user.id}:${today}`, 60, () =>
+    computeDashboard(user, today),
+  );
+}
+
+async function computeDashboard(user: SessionUser, today: IsoDate): Promise<Dashboard> {
   const db = tenantDb(requireTenantId(user));
   const ownOnly = scopeFor(user, 'document.process') === 'assigned';
   const client = { deletedAt: null, assignedManagerId: ownOnly ? user.id : undefined };
@@ -39,8 +48,10 @@ export async function getDashboard(
     file: { status: { not: 'PENDING' as const } },
   };
 
-  const [overview, documentsToProcess, deadlinesThisWeek, processed] = await Promise.all([
+  const [quarterly, monthly, documentsToProcess, deadlinesThisWeek, processed] = await Promise.all([
     tenantOverview(user, collectingPeriod(today, 'QUARTER'), {}, today),
+    // Clients with monthly VAT have monthly checklists: they count in their own period.
+    tenantOverview(user, collectingPeriod(today, 'MONTH'), {}, today),
     db.document.count({ where: { ...pending, status: { in: ['RECEIVED', 'IN_REVIEW'] }, client } }),
     db.obligation.count({
       where: {
@@ -85,6 +96,7 @@ export async function getDashboard(
     }));
   }
 
+  const overview = [...quarterly, ...monthly];
   return {
     redClients: overview.filter((row) => row.light === 'RED').length,
     amberClients: overview.filter((row) => row.light === 'AMBER').length,

@@ -10,14 +10,10 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-010 | — | **Down migrations are manual.** Prisma has no native rollback: each migration folder carries a hand-written `down.sql`. CI does not verify them. |
 | TD-014 | — | **Prisma 6 → 8 upgrade** once v8 is stable (ADR 0011). ESLint 9 and TypeScript 5.9 are pinned for `eslint-config-next@15` compatibility. |
 | TD-015 | — | **MinIO image comes from quay.io**: MinIO stopped publishing to Docker Hub. Revisit if quay.io images stop too (any S3-compatible server works). |
-| TD-019 | — | **K/L/M NIFs are accepted by format only** (`lib/tax-id.ts`); their control character is not checked. |
 | TD-025 | — | **`prisma migrate reset` refuses to run from an AI agent** (Prisma safety guard). `npm run db:reset` must be run by a person. |
 | TD-027 | 5 | **Resend inbound adapter is untested against a live account.** Signature verification and routing are covered; the attachment download endpoint in `inbound/resend.ts` was written from the published API and must be verified with the first real domain. |
 | TD-031 | — | **Inbound attachments under 5 KB are skipped** as signature logos (`inbound/service.ts`). Replace with Content-Disposition/Content-ID once the provider exposes them. |
 | TD-035 | — | **E2E runs against the development database** locally (it re-seeds and leaves its uploads and test tenants behind). CI uses a fresh database. |
-| TD-037 | — | **The traffic-light overview is quarterly.** Clients with monthly VAT keep monthly checklists and are not listed in the quarter view. |
-| TD-038 | — | **Dashboard numbers are computed on every visit** (overview of all clients in memory; average over the last 2 000 processed documents). Cache or pre-aggregate if a tenant grows large. |
-| TD-041 | — | **Failed-jobs panel has no pagination or bulk retry**: first 100 per queue. |
 | TD-042 | — | **Reply-by-email trusts the From address plus the thread token** (ADR 0022). Enforce DMARC on the inbound domain when it is connected. |
 | TD-044 | — | **Attachments are added after the message is sent** (15-minute window, author only). An attachment that fails leaves a message without it and a warning to the author. |
 | TD-047 | — | **The proxy in front of the app must overwrite `X-Forwarded-Host`** (tenant resolution reads it first). Vercel does; document it for any other deployment. |
@@ -29,14 +25,12 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
 | TD-062 | — | **2FA enforcement is off when `DEMO_MODE=true`** so the published demo users work. The feature itself stays on. Never run a real tenant with demo mode. |
 | TD-063 | — | **Data exports are built in memory** (`buildExport`). Fine for a small gestoría; a tenant with many GB needs a streamed ZIP into a multipart upload. |
-| TD-065 | — | **Rate limiting is a fixed window keyed by `X-Forwarded-For`**: a 2x burst across the boundary is possible, and it trusts the proxy to overwrite that header (see TD-047). |
 | TD-066 | — | **Support mode is one read-only overview page** (figures and client list). Browsing the tenant's panel as superadmin would need a cross-host session; not built. |
 | TD-067 | — | **CSP keeps `style-src 'unsafe-inline'`**: tenant colours are CSS variables in a style attribute and Next inlines critical CSS. Scripts are nonce-only. |
 | TD-070 | — | **Pages are never cached by the service worker** (personal data on possibly shared devices), so `/subir` cannot be opened from a cold start without network: the offline queue covers a connection lost while using it, or files left from a previous visit. |
 | TD-071 | — | **The offline queue covers the client uploader only** (not staff uploads: receipts, deliveries, permanent documents). Safari may evict IndexedDB of a site unused for 7 days unless the PWA is installed. |
 | TD-072 | — | **Help centre is fixed content**: ten Spanish articles for clients, no search, not editable per tenant, none for staff. |
 | TD-073 | — | **Lighthouse is run by hand** against the local production build (scores in the README), not in CI, and not on a throttled real device. |
-| TD-074 | — | **The demo reset only recreates `perez` and `otra`**: gestorías that visitors register in a demo environment stay (unverified ones are swept after 7 days). |
 | TD-079 | — | **One flaky test seen once**: `reminders/service.test.ts` "reminds at 15, 7, 2 and 0 days" failed in one full-suite run on 2026-09-21 and passed in isolation (6 times) and in the next two full runs; the assertion message was not captured. Suspect: ordering of `EmailLog` rows by a millisecond `createdAt`. If it shows up again, capture the message before anything else. |
 
 ## Closed
@@ -88,3 +82,9 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-050 | post-launch | Brand colours are adapted for the dark theme: lightened towards white until they reach 4.5:1 on the dark surface, with the button text recomputed; light and dark variants travel as `--brand-*` variables. |
 | TD-053 | post-launch | Documents carry a VAT breakdown (`Document.vatBreakdown`, one row per rate) when they have several rates: extracted by the AI (validated: sums and percentages), typed by the manager in the inbox (totals derived from the rows), and exported as per-rate columns (base and VAT at 21, 10, 4 and 0 %) plus a text summary. |
 | TD-051 | post-launch | Every notification email (documents, filings, messages, mentions, deliveries, signatures, invoices, expiries) goes through an editable template: the kind's own wording, else the tenant's common one, else the default; variables nombre, titulo, detalle, enlace, gestoria. |
+| TD-019 | post-launch | K/L/M NIFs check their control letter (computed over the seven digits). |
+| TD-065 | post-launch | Rate limiting is a sliding window (sorted set per caller in Redis): exact count over the last N seconds, no 2x burst across a boundary. It still trusts the proxy for `X-Forwarded-For` (TD-047). |
+| TD-041 | post-launch | Failed-jobs panel paginated (50 per page across queues, newest first) with "Reintentar los N jobs". |
+| TD-074 | post-launch | The nightly demo reset deletes every tenant (the demo ones and whatever visitors registered) and seeds again. |
+| TD-038 | post-launch | Dashboard numbers cached in Redis for 60 seconds per user (`lib/cache.ts`, fail-open). |
+| TD-037 | post-launch | The traffic-light overview offers months as well as quarters; the dashboard counts clients of both cadences in their own collecting period. |

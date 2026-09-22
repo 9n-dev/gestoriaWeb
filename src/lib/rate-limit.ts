@@ -15,9 +15,9 @@ const LIMITS = {
 } as const;
 
 /**
- * Fixed-window counter in Redis, keyed by bucket + caller. Fails open: if Redis is down people can
- * still log in (the account lockout keeps protecting passwords).
- * ponytail: fixed window allows a 2x burst across the boundary; sliding window if that ever matters.
+ * Sliding window in Redis (a sorted set of timestamps per caller, trimmed to the window): no burst
+ * of 2x across a boundary, exact count over the last `windowSeconds`. Fails open: if Redis is down
+ * people can still log in (the account lockout keeps protecting passwords).
  */
 export async function rateLimit(bucket: keyof typeof LIMITS, key: string): Promise<void> {
   const [limit, windowSeconds] = LIMITS[bucket];
@@ -25,9 +25,16 @@ export async function rateLimit(bucket: keyof typeof LIMITS, key: string): Promi
   try {
     const redis = getRedis();
     if (redis.status === 'wait' || redis.status === 'end') await redis.connect();
-    const redisKey = `rl:${bucket}:${key}:${Math.floor(Date.now() / 1000 / windowSeconds)}`;
-    count = await redis.incr(redisKey);
-    if (count === 1) await redis.expire(redisKey, windowSeconds);
+    const redisKey = `rl:${bucket}:${key}`;
+    const now = Date.now();
+    const results = await redis
+      .multi()
+      .zremrangebyscore(redisKey, 0, now - windowSeconds * 1000)
+      .zadd(redisKey, now, `${now}-${Math.random()}`)
+      .zcard(redisKey)
+      .expire(redisKey, windowSeconds)
+      .exec();
+    count = Number(results?.[2]?.[1] ?? 0);
   } catch (error) {
     console.error('[rate-limit] redis unavailable, failing open', error);
     return;
