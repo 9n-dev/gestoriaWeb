@@ -142,6 +142,34 @@ describe('documents service', () => {
       ).rejects.toThrow(/NIF/);
     });
 
+    it('several VAT rates: the rows are the truth and the totals follow them; one row is just the totals', async () => {
+      const document = await addDocument(tenantId, clientId);
+      await updateDocumentFields(manager, document.id, {
+        ...fields({ taxBase: '', vatRate: '', vatAmount: '', total: '112,20' }),
+        vatBreakdown: [
+          { rate: '10', base: '80,00', vat: '8,00' },
+          { rate: '21', base: '20', vat: '4,2' },
+          { rate: '', base: '', vat: '' }, // an empty row left in the form
+        ],
+      });
+      const saved = await getDocument(manager, document.id);
+      expect(Number(saved.taxBase)).toBe(100);
+      expect(Number(saved.vatAmount)).toBe(12.2);
+      expect(Number(saved.vatRate)).toBe(10); // the rate with the largest base
+      expect(saved.vatBreakdown).toEqual([
+        { rate: 10, base: 80, vat: 8 },
+        { rate: 21, base: 20, vat: 4.2 },
+      ]);
+
+      await updateDocumentFields(manager, document.id, {
+        ...fields(),
+        vatBreakdown: [{ rate: '21', base: '1.000,00', vat: '210,00' }],
+      });
+      const single = await getDocument(manager, document.id);
+      expect(single.vatBreakdown).toBeNull();
+      expect(Number(single.taxBase)).toBe(1000);
+    });
+
     it('books, rejects, marks duplicates and reopens, stamping who and when', async () => {
       const document = await addDocument(tenantId, clientId);
       await confirmFields(manager, document.id);

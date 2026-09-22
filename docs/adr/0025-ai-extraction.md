@@ -20,3 +20,7 @@ Option 2 (`@anthropic-ai/sdk`, model from `ANTHROPIC_MODEL`, default `claude-opu
 - The §6.4 acceptance test (≥ 9 of 10 sample invoices) runs against the development parser in CI; `RUN_AI_EXTRACTION_TEST=1` with a key runs it against Claude (a few cents).
 - Refusals are treated as a failed extraction (manual processing); server-side model fallbacks are not enabled, since an invoice is an unlikely refusal trigger and the manual path already exists.
 - One VAT rate per document, as in the spec; invoices with several rates get totals and the main rate (tech debt).
+
+## Addendum (2026-09-22): several VAT rates
+
+The scalar fields stay as the totals of the document; `vatBreakdown` (JSON, one `{ rate, base, vat }` per rate) exists only when there is more than one rate, so nothing changes for the common case. The extractor is asked for it, and the validation refuses breakdowns whose sums do not match the totals or whose VAT is not the stated percentage of its base. When the manager types rows, they win: the totals are recomputed from them. The export gets per-rate columns, which is how accounting programs take multi-rate invoices.

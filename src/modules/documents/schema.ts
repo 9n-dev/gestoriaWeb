@@ -109,11 +109,22 @@ export const documentFieldsSchema = z.object({
   vatRate: amount,
   vatAmount: amount,
   total: amount,
+  /** Rows typed by the manager; two or more make a breakdown, and the totals are derived from them. */
+  vatBreakdown: z
+    .array(z.object({ rate: amount, base: amount, vat: amount }))
+    .max(6)
+    .default([])
+    .transform((rows) =>
+      rows
+        .filter((row) => row.base !== null || row.vat !== null)
+        .map((row) => ({ rate: row.rate ?? 0, base: row.base ?? 0, vat: row.vat ?? 0 })),
+    ),
 });
 /** Form-shaped input: everything optional arrives as a string, possibly empty. */
 export type DocumentFieldsInput = {
   type: (typeof DOCUMENT_TYPES)[number];
   period: { year: number; type: 'MONTH' | 'QUARTER' | 'YEAR'; ordinal: number } | null;
+  vatBreakdown?: Array<Record<'rate' | 'base' | 'vat', string>>;
 } & Partial<
   Record<
     | 'supplierName'

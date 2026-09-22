@@ -655,6 +655,8 @@ model Document {
   vatRate                 Decimal?         @db.Decimal(5, 2)
   vatAmount               Decimal?         @db.Decimal(12, 2)
   total                   Decimal?         @db.Decimal(12, 2)
+  // [{ rate, base, vat }] when the document carries more than one VAT rate; the scalars above then hold the totals.
+  vatBreakdown            Json?
   currency                String?          @default("EUR")
   confidence              Float? // 0..1
   extractionRaw           Json? // provider response, for debugging and re-validation

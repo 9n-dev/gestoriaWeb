@@ -68,5 +68,24 @@
     "total": 2844.11,
     "supplierTaxId": "B96000997",
     "invoiceNumber": "000412"
+  },
+  {
+    "file": "invoice-11.pdf",
+    "date": "2026-09-12",
+    "total": 112.2,
+    "supplierTaxId": "B96000773",
+    "invoiceNumber": "R-2026-2210",
+    "vatBreakdown": [
+      {
+        "rate": 10,
+        "base": 80,
+        "vat": 8
+      },
+      {
+        "rate": 21,
+        "base": 20,
+        "vat": 4.2
+      }
+    ]
   }
 ]

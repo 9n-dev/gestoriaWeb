@@ -3,7 +3,7 @@
  * Each phase extends it with its own entities (documents, threads, invoices…).
  */
 import { createHash } from 'node:crypto';
-import { PrismaClient, type DocumentStatus, type Role } from '@prisma/client';
+import { Prisma, PrismaClient, type DocumentStatus, type Role } from '@prisma/client';
 import { addDays, toDateOnly, todayInMadrid } from '../src/lib/dates';
 import { hashPassword } from '../src/modules/auth/password';
 import { putObject } from '../src/lib/storage/objects';
@@ -17,7 +17,7 @@ import { signDelivery } from '../src/modules/deliveries/service';
 import { DEFAULT_REJECTION_REASONS } from '../src/modules/documents/schema';
 import { acceptAgreements } from '../src/modules/legal/dpa';
 import { syncObligationsForClient } from '../src/modules/obligations/service';
-import { invoicePdf, invoiceTotals, makePdf, type DemoInvoice } from './seed-files';
+import { invoicePdf, invoiceTotals, makePdf, vatLines, type DemoInvoice } from './seed-files';
 import { seedSystemData } from './system-data';
 
 const prisma = new PrismaClient();
@@ -148,6 +148,22 @@ type DemoDocument = {
 
 // §7: documents in every state, some with data and some pending, two duplicates, one rejected.
 const DEMO_DOCUMENTS: DemoDocument[] = [
+  {
+    slug: 'comida-clientes',
+    client: 'Marta Soler Vidal',
+    status: 'IN_REVIEW',
+    fields: 'proposed',
+    daysAgo: 6,
+    invoice: {
+      supplierName: 'Restaurante La Barraca, S.L.',
+      supplierTaxId: 'B96000773',
+      invoiceNumber: 'R-2026-2210',
+      invoiceDate: '2026-09-12',
+      taxBase: 80,
+      vatRate: 10,
+      alsoAt: { rate: 21, taxBase: 20 },
+    },
+  },
   {
     slug: 'luz-julio',
     client: 'Marta Soler Vidal',
@@ -352,9 +368,9 @@ async function seedDocuments(tenantId: string, managerOf: Map<string, string>) {
             supplierTaxId: invoice.supplierTaxId,
             invoiceNumber: invoice.invoiceNumber,
             invoiceDate: toDateOnly(invoice.invoiceDate),
-            taxBase: invoice.taxBase,
             vatRate: invoice.vatRate,
             ...invoiceTotals(invoice),
+            vatBreakdown: invoice.alsoAt ? vatLines(invoice) : Prisma.JsonNull,
             currency: 'EUR',
             confidence: demo.fields === 'confirmed' ? 0.97 : 0.84,
             extractionStatus: 'DONE' as const,

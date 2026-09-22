@@ -68,8 +68,11 @@ export async function saveFieldsAction(
 ): Promise<ActionState> {
   return runAction(async () => {
     const { period = '', ...values } = formValues(formData);
+    const column = (name: string) => formData.getAll(name).map((value) => String(value).trim());
+    const [rates, bases, vats] = [column('vatRowRate'), column('vatRowBase'), column('vatRowVat')];
     const result = await updateDocumentFields(await requireUser(), id, {
       ...values,
+      vatBreakdown: rates.map((rate, i) => ({ rate, base: bases[i] ?? '', vat: vats[i] ?? '' })),
       type: values.type as 'OTHER',
       period: parsePeriodValue(period),
     });

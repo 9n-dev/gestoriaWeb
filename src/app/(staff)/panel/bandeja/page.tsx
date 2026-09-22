@@ -59,6 +59,13 @@ export default async function InboxPage({
       vatAmount: row.vatAmount?.toString().replace('.', ',') ?? '',
       total: row.total?.toString().replace('.', ',') ?? '',
     },
+    vatBreakdown: (
+      (row.vatBreakdown as Array<{ rate: number; base: number; vat: number }> | null) ?? []
+    ).map((line) => ({
+      rate: String(line.rate).replace('.', ','),
+      base: line.base.toFixed(2).replace('.', ','),
+      vat: line.vat.toFixed(2).replace('.', ','),
+    })),
   }));
 
   return (

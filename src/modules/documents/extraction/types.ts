@@ -15,12 +15,17 @@ export const extractionSchema = z.object({
   vatRate: z.number().nullable(),
   vatAmount: z.number().nullable(),
   total: z.number().nullable(),
+  /** One entry per VAT rate when the document has several; null (or one entry) otherwise. */
+  vatBreakdown: z
+    .array(z.object({ rate: z.number(), base: z.number(), vat: z.number() }))
+    .nullable(),
   /** ISO 4217 */
   currency: z.string().nullable(),
   /** 0..1: how sure the extractor is about the whole set of fields */
   confidence: z.number(),
 });
 export type Extraction = z.infer<typeof extractionSchema>;
+export type VatLine = { rate: number; base: number; vat: number };
 
 export type ExtractorInput = {
   bytes: Uint8Array;

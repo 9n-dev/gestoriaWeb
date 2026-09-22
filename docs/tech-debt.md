@@ -25,7 +25,6 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-049 | — | **Vercel and Resend domain adapters are untested against live accounts** (same situation as TD-027). The flows are covered with injected providers and DNS resolvers. |
 | TD-051 | — | **Notification and message emails keep fixed wording** (only invitations, magic links and reminders are in the editable registry). |
 | TD-052 | — | **The real extractor is not exercised in CI** (needs a key and costs money): `RUN_AI_EXTRACTION_TEST=1 ANTHROPIC_API_KEY=… npx vitest run src/modules/documents/extraction`. Run it before each release and when changing the prompt or the model. |
-| TD-053 | — | **One VAT rate per document.** Invoices with several rates store totals and the main rate. |
 | TD-055 | — | **Export has no vendor presets** (A3, Sage, Contasol…): columns and separator only. |
 | TD-057 | — | **Stripe and GoCardless adapters are untested against live accounts**; signatures and idempotency are covered with the documented schemes. There is no SEPA mandate set-up flow: `Client.gocardlessMandateId` must be filled by hand. |
 | TD-059 | — | **Verifactu submission is not implemented**: invoices carry the chained hash and QR payload (`InvoiceCompliance`), nothing is sent to AEAT. |
@@ -88,3 +87,4 @@ Every `TODO` in the code must point to an entry here. Format: `TD-NNN` · phase 
 | TD-016 | post-launch | Client import takes .xlsx as well as CSV, read by a small own reader (`lib/xlsx-read.ts`: zip central directory, shared and inline strings, zip-bomb ceiling), checked against a LibreOffice-written workbook; the template downloads in both formats. |
 | TD-075 | post-launch | Browser errors are reported too: `window` error and unhandled rejection listeners plus the error boundary post to `/api/errors` (rate limited, size limited, path without query string), which forwards to the same tracker. |
 | TD-050 | post-launch | Brand colours are adapted for the dark theme: lightened towards white until they reach 4.5:1 on the dark surface, with the button text recomputed; light and dark variants travel as `--brand-*` variables. |
+| TD-053 | post-launch | Documents carry a VAT breakdown (`Document.vatBreakdown`, one row per rate) when they have several rates: extracted by the AI (validated: sums and percentages), typed by the manager in the inbox (totals derived from the rows), and exported as per-rate columns (base and VAT at 21, 10, 4 and 0 %) plus a text summary. |
