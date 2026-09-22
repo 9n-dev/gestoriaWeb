@@ -22,6 +22,7 @@ const exportSelect = {
   vatRate: true,
   vatAmount: true,
   total: true,
+  vatBreakdown: true,
   currency: true,
   extractionConfirmed: true,
   createdAt: true,
@@ -32,6 +33,25 @@ const exportSelect = {
 type Row = Prisma.DocumentGetPayload<{ select: typeof exportSelect }>;
 
 const amount = (value: Row['total']) => (value === null ? null : Number(value));
+
+type VatLine = { rate: number; base: number; vat: number };
+/** The document's VAT lines: the breakdown when it has one, the scalars as a single line otherwise. */
+const vatLines = (d: Row): VatLine[] => {
+  const stored = d.vatBreakdown as VatLine[] | null;
+  if (stored?.length) return stored;
+  return d.taxBase === null
+    ? []
+    : [{ rate: amount(d.vatRate) ?? 0, base: Number(d.taxBase), vat: amount(d.vatAmount) ?? 0 }];
+};
+/** Accounting programs want one base and one VAT column per rate: 21, 10, 4 and 0 (exempt). */
+const perRate =
+  (rate: number, key: 'base' | 'vat') =>
+  (d: Row): Cell => {
+    const lines = vatLines(d).filter((line) => line.rate === rate);
+    return lines.length
+      ? Math.round(lines.reduce((sum, line) => sum + line[key], 0) * 100) / 100
+      : null;
+  };
 
 /** Every column a gestoría can put in its export, in the order it will be offered. */
 export const EXPORT_COLUMNS = {
@@ -49,6 +69,22 @@ export const EXPORT_COLUMNS = {
   base: { label: 'Base imponible', value: (d: Row): Cell => amount(d.taxBase) },
   tipo_iva: { label: '% IVA', value: (d: Row): Cell => amount(d.vatRate) },
   cuota_iva: { label: 'Cuota de IVA', value: (d: Row): Cell => amount(d.vatAmount) },
+  desglose_iva: {
+    label: 'Desglose de IVA',
+    value: (d: Row): Cell =>
+      vatLines(d).length > 1
+        ? vatLines(d)
+            .map((line) => `${line.rate} %: ${line.base.toFixed(2)} + ${line.vat.toFixed(2)}`)
+            .join(' | ')
+        : null,
+  },
+  base_21: { label: 'Base al 21 %', value: perRate(21, 'base') },
+  cuota_21: { label: 'Cuota al 21 %', value: perRate(21, 'vat') },
+  base_10: { label: 'Base al 10 %', value: perRate(10, 'base') },
+  cuota_10: { label: 'Cuota al 10 %', value: perRate(10, 'vat') },
+  base_4: { label: 'Base al 4 %', value: perRate(4, 'base') },
+  cuota_4: { label: 'Cuota al 4 %', value: perRate(4, 'vat') },
+  base_exenta: { label: 'Base exenta (0 %)', value: perRate(0, 'base') },
   total: { label: 'Total', value: (d: Row): Cell => amount(d.total) },
   moneda: { label: 'Moneda', value: (d: Row): Cell => d.currency },
   estado: { label: 'Estado', value: (d: Row): Cell => DOCUMENT_STATUS[d.status] },

@@ -47,6 +47,7 @@ const documentSelect = {
   vatRate: true,
   vatAmount: true,
   total: true,
+  vatBreakdown: true,
   extractionConfirmed: true,
   extractionStatus: true,
   confidence: true,
@@ -201,7 +202,18 @@ export async function updateDocumentFields(
   input: DocumentFieldsInput,
 ): Promise<{ possibleDuplicateOfId: string | null }> {
   const document = await loadForProcessing(user, id);
-  const { period, invoiceDate, ...fields } = documentFieldsSchema.parse(input);
+  const { period, invoiceDate, vatBreakdown, ...typed } = documentFieldsSchema.parse(input);
+  // Several rates: the rows are the truth and the totals follow them (a single row is just the totals).
+  const round = (value: number) => Math.round(value * 100) / 100;
+  const breakdown = vatBreakdown.length > 1 ? vatBreakdown : null;
+  const fields = breakdown
+    ? {
+        ...typed,
+        taxBase: round(breakdown.reduce((sum, row) => sum + row.base, 0)),
+        vatAmount: round(breakdown.reduce((sum, row) => sum + row.vat, 0)),
+        vatRate: [...breakdown].sort((a, b) => b.base - a.base)[0]!.rate,
+      }
+    : typed;
   const db = tenantDb(document.tenantId);
 
   const twin =
@@ -226,6 +238,7 @@ export async function updateDocumentFields(
     where: { id },
     data: {
       ...fields,
+      vatBreakdown: breakdown ?? Prisma.JsonNull,
       invoiceDate: invoiceDate ? toDateOnly(invoiceDate) : null,
       periodId,
       status: document.status === 'RECEIVED' ? 'IN_REVIEW' : document.status,
@@ -238,7 +251,12 @@ export async function updateDocumentFields(
     action: 'document.updateFields',
     entity: 'Document',
     entityId: id,
-    diff: { ...fields, invoiceDate, possibleDuplicateOfId: twin?.id ?? null },
+    diff: {
+      ...fields,
+      vatBreakdown: breakdown,
+      invoiceDate,
+      possibleDuplicateOfId: twin?.id ?? null,
+    },
   });
   await refreshChecklist(document.tenantId, document.clientId, [document.periodId, periodId]);
   return { possibleDuplicateOfId: twin?.id ?? null };

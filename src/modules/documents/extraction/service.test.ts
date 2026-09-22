@@ -17,6 +17,7 @@ const good: Extraction = {
   vatRate: 21,
   vatAmount: 18.14,
   total: 104.54,
+  vatBreakdown: null,
   currency: 'EUR',
   confidence: 0.93,
 };
@@ -194,23 +195,62 @@ describe('extractDocument', () => {
 // §6.4 acceptance: total and date right in at least 9 of the 10 sample invoices of the repository.
 // Runs with the development extractor by default; with the real one when
 // RUN_AI_EXTRACTION_TEST=1 and ANTHROPIC_API_KEY are set (it costs a few cents).
-describe('acceptance: 10 sample invoices', () => {
-  it('extracts total and date correctly in at least 9', { timeout: 300_000 }, async () => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
-    const extractor = getDocumentExtractor();
-    let correct = 0;
-    for (const sample of expected) {
-      const bytes = new Uint8Array(
-        readFileSync(new URL(`../../../../fixtures/invoices/${sample.file}`, import.meta.url)),
-      );
-      const { extraction } = await extractor.extract({ bytes, mimeType: 'application/pdf' });
-      if (
-        extraction?.date === sample.date &&
-        extraction.total !== null &&
-        Math.abs(extraction.total - sample.total) < 0.005
-      )
-        correct++;
-    }
-    expect(correct).toBeGreaterThanOrEqual(9);
+describe('vat breakdown validation', () => {
+  const base = { ...good, taxBase: 100, vatAmount: 12.2, total: 112.2, vatRate: 10 };
+  const lines = [
+    { rate: 10, base: 80, vat: 8 },
+    { rate: 21, base: 20, vat: 4.2 },
+  ];
+  it('accepts a breakdown whose bases and VAT add up to the totals', () => {
+    expect(validateExtraction({ ...base, vatBreakdown: lines }, '2026-09-22')).toEqual([]);
   });
+  it('explains sums that do not match, wrong percentages and repeated rates', () => {
+    expect(
+      validateExtraction({ ...base, taxBase: 90, vatBreakdown: lines }, '2026-09-22')[0],
+    ).toContain('not to taxBase 90');
+    expect(
+      validateExtraction(
+        { ...base, vatBreakdown: [{ rate: 10, base: 80, vat: 9 }, lines[1]!] },
+        '2026-09-22',
+      ),
+    ).toContainEqual(expect.stringContaining('is not 10 % of 80'));
+    expect(
+      validateExtraction(
+        { ...base, vatBreakdown: [lines[0]!, { ...lines[0]!, base: 20, vat: 2 }] },
+        '2026-09-22',
+      ).at(-1),
+    ).toContain('repeats a rate');
+  });
+});
+
+describe('acceptance: sample invoices', () => {
+  it(
+    'extracts total and date correctly in at least 9 of the 10 single-rate invoices, and the breakdown of the multi-rate one',
+    { timeout: 300_000 },
+    async () => {
+      vi.spyOn(console, 'info').mockImplementation(() => {});
+      const extractor = getDocumentExtractor();
+      let correct = 0;
+      for (const sample of expected) {
+        const bytes = new Uint8Array(
+          readFileSync(new URL(`../../../../fixtures/invoices/${sample.file}`, import.meta.url)),
+        );
+        const { extraction } = await extractor.extract({ bytes, mimeType: 'application/pdf' });
+        const ok =
+          extraction?.date === sample.date &&
+          extraction.total !== null &&
+          Math.abs(extraction.total - sample.total) < 0.005;
+        if ('vatBreakdown' in sample) {
+          // The multi-rate ticket must come back whole: it is what TD-053 was about.
+          expect(ok, sample.file).toBe(true);
+          expect(extraction?.vatBreakdown, sample.file).toEqual(sample.vatBreakdown);
+          expect(extraction?.taxBase).toBe(100);
+          expect(extraction?.vatAmount).toBe(12.2);
+          expect(extraction?.vatRate).toBe(10);
+          expect(validateExtraction(extraction!, '2026-09-22')).toEqual([]);
+        } else if (ok) correct++;
+      }
+      expect(correct).toBeGreaterThanOrEqual(9);
+    },
+  );
 });

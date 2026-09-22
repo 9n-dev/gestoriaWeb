@@ -52,6 +52,8 @@ export type InboxDocument = {
     | 'total',
     string
   >;
+  /** Rows when the document carries several VAT rates; the totals above are their sums. */
+  vatBreakdown: Array<Record<'rate' | 'base' | 'vat', string>>;
 };
 
 type Props = {
@@ -482,8 +484,105 @@ function FieldsForm({ document, periods }: { document: InboxDocument; periods: P
         />
         <Field label="Total" name="total" inputMode="decimal" defaultValue={fields.total} />
       </div>
+      <VatBreakdownEditor rows={document.vatBreakdown} />
       <SubmitButton variant="secondary">Guardar datos</SubmitButton>
     </ActionForm>
+  );
+}
+
+/**
+ * Several VAT rates on one document (a hotel bill, a supermarket ticket): one row per rate. With
+ * two or more rows the base, VAT and rate fields above are recomputed from them on save.
+ */
+function VatBreakdownEditor({
+  rows: initial,
+}: {
+  rows: Array<Record<'rate' | 'base' | 'vat', string>>;
+}) {
+  const [rows, setRows] = useState(initial);
+  const [open, setOpen] = useState(initial.length > 0);
+  const change = (index: number, key: 'rate' | 'base' | 'vat', value: string) =>
+    setRows((current) => current.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(true);
+          setRows([
+            { rate: '21', base: '', vat: '' },
+            { rate: '10', base: '', vat: '' },
+          ]);
+        }}
+        className="self-start text-sm underline"
+      >
+        Varios tipos de IVA
+      </button>
+    );
+  }
+  return (
+    <fieldset className="flex flex-col gap-2 rounded-md border border-border p-3">
+      <legend className="px-1 text-sm font-medium">Desglose por tipo de IVA</legend>
+      {rows.map((row, index) => (
+        <div key={index} className="grid grid-cols-[5rem_1fr_1fr_auto] items-end gap-2">
+          <Field
+            label="% IVA"
+            name="vatRowRate"
+            id={`vat-rate-${index}`}
+            inputMode="decimal"
+            value={row.rate}
+            onChange={(e) => change(index, 'rate', e.target.value)}
+          />
+          <Field
+            label="Base"
+            name="vatRowBase"
+            id={`vat-base-${index}`}
+            inputMode="decimal"
+            value={row.base}
+            onChange={(e) => change(index, 'base', e.target.value)}
+          />
+          <Field
+            label="Cuota"
+            name="vatRowVat"
+            id={`vat-vat-${index}`}
+            inputMode="decimal"
+            value={row.vat}
+            onChange={(e) => change(index, 'vat', e.target.value)}
+          />
+          <button
+            type="button"
+            className="min-h-11 px-2 text-sm underline"
+            onClick={() => setRows((current) => current.filter((_, i) => i !== index))}
+          >
+            Quitar<span className="sr-only"> el tipo {index + 1}</span>
+          </button>
+        </div>
+      ))}
+      <div className="flex gap-3 text-sm">
+        <button
+          type="button"
+          className="underline"
+          disabled={rows.length >= 6}
+          onClick={() => setRows((current) => [...current, { rate: '4', base: '', vat: '' }])}
+        >
+          Añadir tipo
+        </button>
+        <button
+          type="button"
+          className="underline"
+          onClick={() => {
+            setRows([]);
+            setOpen(false);
+          }}
+        >
+          Un solo tipo
+        </button>
+      </div>
+      <p className="text-xs text-fg-muted">
+        Con dos o más tipos, la base, la cuota y el % IVA de arriba se calculan a partir de estas
+        filas al guardar.
+      </p>
+    </fieldset>
   );
 }
 

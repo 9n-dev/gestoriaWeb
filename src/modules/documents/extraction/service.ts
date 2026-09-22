@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma, tenantDb } from '@/lib/db';
 import { addDays, toDateOnly, todayInMadrid } from '@/lib/dates';
 import { validateTaxId } from '@/lib/tax-id';
@@ -44,6 +44,27 @@ export function validateExtraction(extraction: Extraction, today = todayInMadrid
     )
   ) {
     problems.push('an amount is not a plausible number.');
+  }
+  const lines = extraction.vatBreakdown ?? [];
+  const close = (a: number, b: number) => Math.abs(a - b) <= 0.05 + lines.length * 0.01;
+  if (lines.length > 0) {
+    const sum = (key: 'base' | 'vat') => lines.reduce((acc, line) => acc + line[key], 0);
+    if (taxBase !== null && !close(sum('base'), taxBase))
+      problems.push(
+        `the bases of vatBreakdown add up to ${sum('base').toFixed(2)}, not to taxBase ${taxBase}.`,
+      );
+    if (vatAmount !== null && !close(sum('vat'), vatAmount))
+      problems.push(
+        `the VAT of vatBreakdown adds up to ${sum('vat').toFixed(2)}, not to vatAmount ${vatAmount}.`,
+      );
+    for (const line of lines) {
+      if (line.rate < 0 || line.rate > 100)
+        problems.push(`VAT rate ${line.rate} is not a percentage.`);
+      else if (!close(line.vat, (line.base * line.rate) / 100))
+        problems.push(`${line.vat} is not ${line.rate} % of ${line.base} in vatBreakdown.`);
+    }
+    if (new Set(lines.map((line) => line.rate)).size !== lines.length)
+      problems.push('vatBreakdown repeats a rate; merge the lines of the same rate.');
   }
   if (extraction.confidence < 0 || extraction.confidence > 1)
     problems.push('confidence must be between 0 and 1.');
@@ -174,6 +195,11 @@ export async function extractDocument(
       vatRate: accepted.vatRate,
       vatAmount: accepted.vatAmount,
       total: accepted.total,
+      // One rate is what the scalars already say; only a real breakdown is worth keeping.
+      vatBreakdown:
+        accepted.vatBreakdown && accepted.vatBreakdown.length > 1
+          ? (accepted.vatBreakdown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       currency: accepted.currency ?? 'EUR',
       confidence,
       extractionRaw: raw as Prisma.InputJsonValue,

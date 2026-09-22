@@ -118,6 +118,62 @@ describe('accounting export', () => {
     ).rejects.toThrow();
   });
 
+  it('splits the base and VAT per rate, from the breakdown or from the single rate', async () => {
+    const client = await createClient(tenantId, { legalName: 'Bar Tapas' });
+    await addInvoice(client.id, {
+      invoiceNumber: 'R-1',
+      taxBase: 100,
+      vatRate: 10,
+      vatAmount: 12.2,
+      total: 112.2,
+      vatBreakdown: [
+        { rate: 10, base: 80, vat: 8 },
+        { rate: 21, base: 20, vat: 4.2 },
+      ],
+    });
+    await saveExportFormat(admin, {
+      columns: [
+        'numero',
+        'base_21',
+        'cuota_21',
+        'base_10',
+        'cuota_10',
+        'base_exenta',
+        'desglose_iva',
+      ],
+      decimalSeparator: '.',
+      onlyBooked: true,
+    });
+    const rows = parseCsv((await exportDocuments(admin, { period: Q3 })).body as string);
+    expect(rows[0]).toEqual([
+      'Número',
+      'Base al 21 %',
+      'Cuota al 21 %',
+      'Base al 10 %',
+      'Cuota al 10 %',
+      'Base exenta (0 %)',
+      'Desglose de IVA',
+    ]);
+    expect(rows.find((row) => row[0] === 'F-1')).toEqual([
+      'F-1',
+      '1000.00',
+      '210.00',
+      '',
+      '',
+      '',
+      '',
+    ]);
+    expect(rows.find((row) => row[0] === 'R-1')).toEqual([
+      'R-1',
+      '20.00',
+      '4.20',
+      '80.00',
+      '8.00',
+      '',
+      '10 %: 80.00 + 8.00 | 21 %: 20.00 + 4.20',
+    ]);
+  });
+
   it('writes XLSX with numeric cells', async () => {
     const result = await exportDocuments(admin, { period: Q3, format: 'xlsx' });
     expect(result.fileName).toBe('documentos-2026-t3.xlsx');

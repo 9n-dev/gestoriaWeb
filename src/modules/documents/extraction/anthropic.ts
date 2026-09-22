@@ -8,7 +8,8 @@ Read the attached document and return its fields. Rules:
 - supplierTaxId is a Spanish NIF/CIF/NIE: uppercase, no spaces, dots or dashes.
 - date is the invoice date in ISO format (YYYY-MM-DD). Spanish documents write dates as DD/MM/YYYY.
 - Amounts are numbers with a dot as decimal separator. Spanish documents write 1.234,56 for 1234.56.
-- vatRate is a percentage (21, 10, 4, 0). With several VAT rates, give the totals and the main rate.
+- vatRate is a percentage (21, 10, 4, 0). taxBase and vatAmount are always the totals of the whole document.
+- With several VAT rates, also fill vatBreakdown with one entry per rate (rate, base, vat) and put the rate with the largest base in vatRate. With a single rate, vatBreakdown is null.
 - taxBase + vatAmount should equal total unless the document shows withholdings (IRPF).
 - currency is an ISO 4217 code; assume EUR when the document shows € or nothing.
 - Use null for anything the document does not show. Never invent values.
