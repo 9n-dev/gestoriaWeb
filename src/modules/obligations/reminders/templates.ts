@@ -43,7 +43,32 @@ export type TemplateKey =
   | 'reminder.inactivity'
   | 'reminder.permanent_expiry'
   | 'auth.magic_link'
-  | 'auth.invitation';
+  | 'auth.invitation'
+  | NotificationTemplateKey;
+
+/**
+ * Every notification email goes through one editable wrapper (`notification.generic`); a tenant
+ * that wants different wording for one kind of notification overrides that kind's own key.
+ */
+export const NOTIFICATION_TEMPLATE_KEYS = [
+  'notification.generic',
+  'notification.document_received',
+  'notification.document_rejected',
+  'notification.obligation_filed',
+  'notification.new_message',
+  'notification.mention',
+  'notification.delivery_available',
+  'notification.signature_requested',
+  'notification.invoice_issued',
+  'notification.invoice_overdue',
+  'notification.permanent_doc_expiring',
+] as const;
+export type NotificationTemplateKey = (typeof NOTIFICATION_TEMPLATE_KEYS)[number];
+
+const NOTIFICATION_DEFAULT = {
+  subject: '{{titulo}}',
+  body: 'Hola, {{nombre}}:\n\n{{titulo}}\n\n{{detalle}}\n\nEntra en el portal para verlo: {{enlace}}\n\n{{gestoria}}',
+};
 
 /**
  * Default wording of every editable email. Tenants override subject and body (Ajustes → Emails).
@@ -51,6 +76,9 @@ export type TemplateKey =
  * {{clientes}} {{nombre}} {{enlace}}
  */
 export const DEFAULT_TEMPLATES: Record<TemplateKey, { subject: string; body: string }> = {
+  ...(Object.fromEntries(
+    NOTIFICATION_TEMPLATE_KEYS.map((key) => [key, NOTIFICATION_DEFAULT]),
+  ) as Record<NotificationTemplateKey, { subject: string; body: string }>),
   'reminder.deadline.15d': {
     subject: 'Se acerca el plazo del {{plazo}}',
     body: 'Hola:\n\nEl {{plazo}} termina el plazo para presentar: {{modelos}}.\n\n{{pendientes}}\n\nTodavía hay tiempo, pero cuanto antes lo tengamos, mejor.\n\n{{gestoria}}',

@@ -459,7 +459,8 @@ See ADR 0031–0032.
 Ajustes → Marca / Dominio / Emails. A custom domain only resolves to its tenant after our DNS lookup finds the
 TXT token; then it is attached to the deployment (`DomainProvider`). The sending domain shows SPF, DKIM and DMARC
 with their status (`EmailDomainProvider`); once verified, emails leave from `no-reply@<domain>`. Every system
-email has editable wording with a preview and is sent with a branded HTML version. `lib/i18n` holds the Spanish
+email has editable wording with a preview and is sent with a branded HTML version; notification emails share
+one editable wrapper, and each kind can get its own. `lib/i18n` holds the Spanish
 dictionary and empty `ca`, `gl`, `eu`, `en` ones that fall back to it. See ADR 0024.
 
 ## Health

@@ -2,6 +2,12 @@ import type { Notification, NotificationType } from '@prisma/client';
 import { z } from 'zod';
 import { prisma, tenantDb } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
+import {
+  DEFAULT_TEMPLATES,
+  NOTIFICATION_TEMPLATE_KEYS,
+  renderTemplate,
+  type NotificationTemplateKey,
+} from '@/modules/obligations/reminders/templates';
 import { AppError } from '@/lib/errors';
 import { assertCan, requireTenantId, type SessionUser } from '@/modules/auth/permissions';
 import { tenantBaseUrl } from '@/modules/tenants/resolve';
@@ -33,6 +39,24 @@ const NOTIFICATION_TYPES = [
   'CLIENT_INACTIVE',
   'SYSTEM',
 ] as const satisfies readonly NotificationType[];
+
+/** The kind's own override, then the common one, then the default. */
+async function resolveNotificationTemplate(tenantId: string, type: NotificationType) {
+  const own = `notification.${type.toLowerCase()}`;
+  const keys = (NOTIFICATION_TEMPLATE_KEYS as readonly string[]).includes(own)
+    ? [own as NotificationTemplateKey, 'notification.generic' as const]
+    : ['notification.generic' as const];
+  const overrides = await tenantDb(tenantId).template.findMany({
+    where: { kind: 'EMAIL', locale: 'es', key: { in: keys } },
+  });
+  for (const key of keys) {
+    const override = overrides.find((row) => row.key === key);
+    if (override) {
+      return { subject: override.subject ?? DEFAULT_TEMPLATES[key].subject, body: override.body };
+    }
+  }
+  return DEFAULT_TEMPLATES['notification.generic'];
+}
 
 /** `User.notificationPrefs`. In-app notifications cannot be turned off: they are the record. */
 export const notificationPrefsSchema = z.object({
@@ -79,22 +103,22 @@ export async function notifyUsers(
     if (prefs.mutedTypes.includes(payload.type)) continue;
 
     if (prefs.email) {
-      const footer = portal ? `Entra en el portal para verlo: ${portal}` : '';
+      // The tenant's wording for this kind of notification, or its common one (Ajustes → Emails).
+      const template = await resolveNotificationTemplate(tenantId, payload.type);
+      const variables = {
+        nombre: user.name,
+        titulo: payload.email?.subject ?? payload.title,
+        detalle: payload.email?.text ?? payload.body ?? '',
+        enlace: portal ?? '',
+        gestoria: tenant.name,
+      };
       await sendEmail({
         tenantId,
         to: user.email,
         replyTo: payload.email?.replyTo,
         templateKey: payload.email?.templateKey ?? `notification.${payload.type.toLowerCase()}`,
-        subject: `${payload.email?.subject ?? payload.title} · ${tenant.name}`,
-        text: payload.email
-          ? [payload.email.text, footer].filter(Boolean).join('\n\n')
-          : [
-              `Hola, ${user.name}:`,
-              '',
-              payload.title,
-              ...(payload.body ? ['', payload.body] : []),
-              ...(footer ? ['', footer] : []),
-            ].join('\n'),
+        subject: `${renderTemplate(template.subject, variables)} · ${tenant.name}`,
+        text: renderTemplate(template.body, variables),
       });
     }
 

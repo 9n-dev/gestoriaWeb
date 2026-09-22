@@ -11,6 +11,9 @@ import {
 } from '@/modules/obligations/reminders/templates';
 import { parseBranding } from '@/modules/tenants/schema';
 
+/** The wrapper of every notification email: what happened, the detail, where to see it. */
+const NOTIFICATION_VARIABLES = ['nombre', 'titulo', 'detalle', 'enlace', 'gestoria'];
+
 /** What the editor shows for each system email, and the sample data of its preview. */
 export const EMAIL_TEMPLATE_INFO: Record<TemplateKey, { label: string; variables: string[] }> = {
   'auth.invitation': { label: 'Invitación al portal', variables: ['nombre', 'gestoria', 'enlace'] },
@@ -39,6 +42,44 @@ export const EMAIL_TEMPLATE_INFO: Record<TemplateKey, { label: string; variables
     label: 'Documento permanente a punto de caducar',
     variables: ['documento', 'cliente', 'plazo', 'dias', 'gestoria'],
   },
+  'notification.generic': { label: 'Avisos: texto común', variables: NOTIFICATION_VARIABLES },
+  'notification.document_received': {
+    label: 'Aviso: documento recibido',
+    variables: NOTIFICATION_VARIABLES,
+  },
+  'notification.document_rejected': {
+    label: 'Aviso: documento rechazado',
+    variables: NOTIFICATION_VARIABLES,
+  },
+  'notification.obligation_filed': {
+    label: 'Aviso: impuesto presentado',
+    variables: NOTIFICATION_VARIABLES,
+  },
+  'notification.new_message': { label: 'Aviso: nuevo mensaje', variables: NOTIFICATION_VARIABLES },
+  'notification.mention': {
+    label: 'Aviso: mención de un compañero',
+    variables: NOTIFICATION_VARIABLES,
+  },
+  'notification.delivery_available': {
+    label: 'Aviso: nueva entrega',
+    variables: NOTIFICATION_VARIABLES,
+  },
+  'notification.signature_requested': {
+    label: 'Aviso: documento por firmar',
+    variables: NOTIFICATION_VARIABLES,
+  },
+  'notification.invoice_issued': {
+    label: 'Aviso: factura emitida',
+    variables: NOTIFICATION_VARIABLES,
+  },
+  'notification.invoice_overdue': {
+    label: 'Aviso: factura vencida',
+    variables: NOTIFICATION_VARIABLES,
+  },
+  'notification.permanent_doc_expiring': {
+    label: 'Aviso: documento a punto de caducar',
+    variables: NOTIFICATION_VARIABLES,
+  },
 };
 
 const SAMPLE = {
@@ -52,6 +93,8 @@ const SAMPLE = {
   documento: 'Certificado digital',
   clientes: '- Reformas Turia, S.L.\n- Bicis Malvarrosa, S.L.',
   enlace: 'https://clientes.tugestoria.es/acceso/enlace?token=ejemplo',
+  titulo: 'Hemos recibido tu documento',
+  detalle: 'factura-luz-agosto.pdf ya está en manos de tu gestor.',
 };
 
 const keys = Object.keys(EMAIL_TEMPLATE_INFO) as [TemplateKey, ...TemplateKey[]];
