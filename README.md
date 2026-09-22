@@ -72,7 +72,7 @@ Actions.
   [AI extraction and export](#ai-extraction-and-accounting-export) · [Security and GDPR](#security-and-gdpr) ·
   [PWA, offline and help](#pwa-offline-and-help) · [White label](#white-label)
 - [Deployment](#deployment) · [Fiscal reference data](#fiscal-reference-data)
-- [Definition of done](#definition-of-done) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
+- [Definition of done](#definition-of-done) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [License](#license)
 
 The product specification is [`CLAUDE.md`](CLAUDE.md). The approved folder structure, data model summary
 and permission matrix are in [`docs/foundation.md`](docs/foundation.md).
@@ -522,3 +522,7 @@ Checked against §9 of the spec (`CLAUDE.md`):
 | A manager processes 50 documents in a row with the keyboard only                                                                     | Inbox shortcuts (J/K move, B book, Enter confirm, R reject, D duplicate, E edit fields); `e2e/upload-and-book.spec.ts` books and rejects by keyboard                                                                                                                                                                                    |
 | A whole tenant can be exported and deleted and the system is left clean                                                              | `src/modules/gdpr/gdpr.test.ts`: after the purge every tenant-owned model counts 0, the bucket prefix is empty and the neighbour tenant is untouched                                                                                                                                                                                    |
 | Documented and demonstrable in demo mode                                                                                             | This file; `npm run db:seed` + `DEMO_MODE=true`                                                                                                                                                                                                                                                                                         |
+
+## License
+
+[MIT](LICENSE).

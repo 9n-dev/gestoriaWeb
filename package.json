@@ -18,6 +18,7 @@
     "type": "git",
     "url": "https://github.com/9n-dev/gestoriaWeb.git"
   },
+  "license": "MIT",
   "private": true,
   "engines": {
     "node": ">=22"
